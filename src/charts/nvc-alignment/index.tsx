@@ -14,6 +14,7 @@ import {
   generateHrfLikeSeries,
 } from '../../lib/synthetic';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 interface SeizureBand {
@@ -149,6 +150,50 @@ function NVCChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'short',
+              label: 'Short window',
+              hint: 'epoch',
+              description: '60-s window, dense bands — single epoch view.',
+              apply: () => {
+                setDuration(60);
+                setShowBands(true);
+              },
+            },
+            {
+              id: 'long',
+              label: 'Long recording',
+              hint: 'session',
+              description: '300 s — multiple HRF cycles visible.',
+              apply: () => {
+                setDuration(300);
+                setShowBands(true);
+              },
+            },
+            {
+              id: 'tightcoupling',
+              label: 'Tight HbR coupling',
+              hint: 'physiology',
+              description: 'Strong negative HbO/HbR correlation.',
+              apply: () => {
+                setHbrCoupling(0.9);
+              },
+            },
+            {
+              id: 'looser',
+              label: 'Loose coupling',
+              hint: 'noise',
+              description: 'Lower coupling — noisier hemodynamics.',
+              apply: () => {
+                setHbrCoupling(0.3);
+              },
+            },
+          ]}
+        />
+      }
       filename="nvc-alignment"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

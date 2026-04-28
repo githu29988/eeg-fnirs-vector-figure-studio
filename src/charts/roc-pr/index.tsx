@@ -12,6 +12,10 @@ import { buildLinearAxis } from '../../lib/scales';
 import { sampleColormap } from '../../lib/colormaps';
 import { generateBinaryScores } from '../../lib/synthetic';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import {
+  InspirationPanel,
+  type InspirationPreset,
+} from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 import {
   bootstrapAucCi,
@@ -116,11 +120,60 @@ function RocPrChart() {
     .x((d) => xAxis.scale(d[0]))
     .y((d) => yAxis.scale(d[1]));
 
+  const inspirations: InspirationPreset[] = [
+    {
+      id: 'review',
+      label: 'Conference baseline',
+      hint: 'review',
+      description: 'n=420, 120-iter bootstrap, default models.',
+      apply: () => {
+        setN(420);
+        setBootstrapIter(120);
+        setPrevalence(0.5);
+        setShowCi(true);
+      },
+    },
+    {
+      id: 'rare',
+      label: 'Rare-disease screening',
+      hint: 'clinical',
+      description: 'Low prevalence flips PR — AP collapses, ROC unaffected.',
+      apply: () => {
+        setN(900);
+        setBootstrapIter(200);
+        setPrevalence(0.05);
+        setShowCi(true);
+      },
+    },
+    {
+      id: 'tight',
+      label: 'Tight CI',
+      hint: 'publication',
+      description: 'Big bootstrap (B=600) for camera-ready figures.',
+      apply: () => {
+        setN(600);
+        setBootstrapIter(600);
+        setPrevalence(0.5);
+        setShowCi(true);
+      },
+    },
+    {
+      id: 'noci',
+      label: 'Curves only',
+      hint: 'minimal',
+      description: 'Hide CIs to declutter for poster panels.',
+      apply: () => {
+        setShowCi(false);
+      },
+    },
+  ];
+
   return (
     <ChartShell
       filename="roc-pr-curves"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}
+      inspiration={<InspirationPanel presets={inspirations} />}
       inspector={
         <>
           <ControlGroup label="Sample size n">

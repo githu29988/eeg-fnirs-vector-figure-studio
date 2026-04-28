@@ -8,6 +8,7 @@ import {
 } from '../../components/Controls';
 import { sampleColormap, type ColormapName } from '../../lib/colormaps';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 interface CubeSpec {
@@ -134,6 +135,52 @@ function SpatiotemporalCnn() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'wide',
+              label: 'Wide layer pipe',
+              hint: 'figure',
+              description: 'Wider tensor blocks for inline figures.',
+              apply: () => {
+                setScaleW(96);
+                setGap(72);
+                setShowShapes(true);
+              },
+            },
+            {
+              id: 'compact',
+              label: 'Compact pipe',
+              hint: 'paper',
+              description: 'Tight spacing — column-width figure.',
+              apply: () => {
+                setScaleW(64);
+                setGap(40);
+                setShowShapes(true);
+              },
+            },
+            {
+              id: 'shapesoff',
+              label: 'Shapes off',
+              hint: 'minimal',
+              description: 'Hide tensor labels for slide presentations.',
+              apply: () => {
+                setShowShapes(false);
+              },
+            },
+            {
+              id: 'viridis',
+              label: 'Viridis palette',
+              hint: 'palette',
+              description: 'Switch from plasma to viridis.',
+              apply: () => {
+                setColormap('viridis');
+              },
+            },
+          ]}
+        />
+      }
       filename="spatiotemporal-cnn"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

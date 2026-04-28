@@ -9,6 +9,7 @@ import {
 } from '../../components/Controls';
 import { sampleColormap, type ColormapName } from '../../lib/colormaps';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 interface BlockSpec {
@@ -119,6 +120,55 @@ function FlowchartChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'pres',
+              label: 'Presentation grid',
+              hint: 'slides',
+              description: 'Wider columns, larger label text spacing.',
+              apply: () => {
+                setColSpacing(180);
+                setRowSpacing(130);
+                setShowShapes(true);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'compact',
+              label: 'Compact diagram',
+              hint: 'paper',
+              description: 'Tighter spacing for journal column figures.',
+              apply: () => {
+                setColSpacing(120);
+                setRowSpacing(86);
+                setShowShapes(true);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'arrows',
+              label: 'Arrows only',
+              hint: 'minimal',
+              description: 'Hide block fills — emphasise dataflow edges.',
+              apply: () => {
+                setShowShapes(false);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'magma',
+              label: 'Magma palette',
+              hint: 'palette',
+              description: 'Warm-tone alternative to cividis.',
+              apply: () => {
+                setColormap('magma');
+              },
+            },
+          ]}
+        />
+      }
       filename="fusion-flowchart"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

@@ -137,10 +137,12 @@ npm run lint
 
 ## Chart catalogue (v1)
 
-All 14 figures ship with a seeded synthetic data generator and a Simple
-inspector exposing 3–5 high-impact controls. Expert mode (full
-parameter tree + inspiration tile recommendations) is scaffolded but
-not yet wired in this release.
+All 14 figures ship with a seeded synthetic data generator, a Simple
+inspector (3–5 high-impact controls), an Expert parameter tree (full
+controllable surface, collapsible), and an Inspiration panel
+(curated variant tiles that re-bind several Expert parameters in one
+click — e.g. *Rare-disease screening* on ROC/PR or *Sparse network*
+on HeGAT-Map).
 
 ### Architecture (3)
 
@@ -191,9 +193,10 @@ not yet wired in this release.
 - **Phase 1 — MVP.** ✅ All 14 figures implemented with seeded synthetic
   data; SVG-first vector pipeline; DPI-configurable PNG export; KaTeX
   titles + captions; Simple inspector per chart.
-- **Phase 2 — Alpha.** Real-data ingestion (BIDS / SNIRF / EDF via Web
-  Workers); MathJax SVG output for true vector formulas; Expert mode
-  parameter tree; inspiration-tile recommendations.
+- **Phase 2 — Alpha.** ✅ MathJax SVG output for true vector formulas;
+  ✅ Expert mode parameter tree; ✅ Inspiration variant tiles.
+  Real-data ingestion (BIDS / SNIRF / EDF via Web Workers) is the
+  remaining Phase 2 item.
 - **Phase 3 — Beta.** Project workspace + snapshots + IndexedDB cache;
   batch export and quality-check engine; live KaTeX editor.
 - **Phase 4 — v1.0.** Tauri-packaged desktop builds for Windows /

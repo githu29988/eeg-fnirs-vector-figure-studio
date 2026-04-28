@@ -13,6 +13,7 @@ import {
   generateSignificanceMatrix,
 } from '../../lib/synthetic';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 function regionLabel(i: number, eegCount: number): string {
@@ -81,6 +82,54 @@ function LeadLagChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'small',
+              label: 'Small panel',
+              hint: 'paper',
+              description: '8×8 lead-lag matrix — column-width figure.',
+              apply: () => {
+                setN(8);
+                setShowStars(true);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'large',
+              label: 'Whole-brain matrix',
+              hint: 'overview',
+              description: '20 channels — full multimodal grid.',
+              apply: () => {
+                setN(20);
+                setShowStars(true);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'highlight',
+              label: 'Significance only',
+              hint: 'audit',
+              description: 'Stars on, labels hidden — emphasise pattern.',
+              apply: () => {
+                setShowStars(true);
+                setShowLabels(false);
+              },
+            },
+            {
+              id: 'reseed',
+              label: 'Re-seed both axes',
+              hint: 'shuffle',
+              description: 'Sample new lag + p-value seeds.',
+              apply: () => {
+                setLagSeed((s) => s + 1);
+                setPSeed((s) => s + 1);
+              },
+            },
+          ]}
+        />
+      }
       filename="lead-lag-matrix"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

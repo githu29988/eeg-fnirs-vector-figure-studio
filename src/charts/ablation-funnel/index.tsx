@@ -8,6 +8,7 @@ import {
 } from '../../components/Controls';
 import { sampleColormap, type ColormapName } from '../../lib/colormaps';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 interface AblationStep {
@@ -72,6 +73,52 @@ function AblationFunnel() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'compact',
+              label: 'Compact print',
+              hint: 'A4',
+              description: 'Narrow funnel for column-width prints.',
+              apply: () => {
+                setMaxWidth(300);
+                setStepHeight(48);
+                setFillOpacity(0.85);
+              },
+            },
+            {
+              id: 'poster',
+              label: 'Poster scale',
+              hint: 'poster',
+              description: 'Wide steps and tall rows for A0 posters.',
+              apply: () => {
+                setMaxWidth(520);
+                setStepHeight(80);
+                setFillOpacity(0.85);
+              },
+            },
+            {
+              id: 'outline',
+              label: 'Outline only',
+              hint: 'minimal',
+              description: 'Low fill, lets typography lead.',
+              apply: () => {
+                setFillOpacity(0.18);
+              },
+            },
+            {
+              id: 'magma',
+              label: 'Magma palette',
+              hint: 'palette',
+              description: 'Thermal warmth for review-friendly contrast.',
+              apply: () => {
+                setColormap('magma');
+              },
+            },
+          ]}
+        />
+      }
       filename="ablation-funnel"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

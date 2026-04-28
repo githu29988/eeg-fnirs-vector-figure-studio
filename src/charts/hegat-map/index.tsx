@@ -18,6 +18,7 @@ import {
 import { mulberry32 } from '../../lib/random';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 interface GraphNode {
@@ -148,6 +149,57 @@ function HeGATChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'sparse',
+              label: 'Sparse network',
+              hint: 'minimal',
+              description: 'Low density — surfaces high-attention edges only.',
+              apply: () => {
+                setEegN(8);
+                setFnirsN(8);
+                setDensity(0.18);
+                setIterations(300);
+              },
+            },
+            {
+              id: 'dense',
+              label: 'Dense network',
+              hint: 'rich',
+              description: 'Many edges — stress-test the layout solver.',
+              apply: () => {
+                setEegN(14);
+                setFnirsN(14);
+                setDensity(0.55);
+                setIterations(450);
+              },
+            },
+            {
+              id: 'hub',
+              label: 'Hub-spoke',
+              hint: 'topology',
+              description: 'Mid-density with extra solver iterations.',
+              apply: () => {
+                setEegN(10);
+                setFnirsN(10);
+                setDensity(0.42);
+                setIterations(500);
+              },
+            },
+            {
+              id: 'magma',
+              label: 'Magma palette',
+              hint: 'palette',
+              description: 'Warm tone palette for projector-friendly contrast.',
+              apply: () => {
+                setColormap('magma');
+              },
+            },
+          ]}
+        />
+      }
       filename="hegat-map"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}
