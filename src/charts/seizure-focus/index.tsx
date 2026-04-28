@@ -11,6 +11,7 @@ import {
 import { getColormap, type ColormapName } from '../../lib/colormaps';
 import { mulberry32, randn } from '../../lib/random';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 interface AnatomicalLandmark {
@@ -118,6 +119,51 @@ function SeizureFocusChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'crisp',
+              label: 'Crisp focus',
+              hint: 'figure',
+              description: 'High grid + many thresholds — sharp contour rings.',
+              apply: () => {
+                setGridSize(96);
+                setThresholds(12);
+                setShowLandmarks(true);
+              },
+            },
+            {
+              id: 'fast',
+              label: 'Quick preview',
+              hint: 'preview',
+              description: 'Coarse grid for fast rerender during exploration.',
+              apply: () => {
+                setGridSize(40);
+                setThresholds(6);
+              },
+            },
+            {
+              id: 'reseed',
+              label: 'Resample focus',
+              hint: 'shuffle',
+              description: 'Move the synthetic focus to a new location.',
+              apply: () => {
+                setSeed((s) => s + 1);
+              },
+            },
+            {
+              id: 'magma',
+              label: 'Magma palette',
+              hint: 'palette',
+              description: 'Warm magma instead of inferno for thermal contrast.',
+              apply: () => {
+                setColormap('magma');
+              },
+            },
+          ]}
+        />
+      }
       filename="seizure-focus"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

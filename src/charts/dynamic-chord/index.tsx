@@ -10,6 +10,7 @@ import {
 import { sampleColormap, type ColormapName } from '../../lib/colormaps';
 import { mulberry32, randn } from '../../lib/random';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 const REGIONS = [
@@ -110,6 +111,51 @@ function DynamicChordChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'preictal',
+              label: 'Pre-ictal snapshot',
+              hint: 't=4',
+              description: 'Early window before seizure onset.',
+              apply: () => {
+                setT(4);
+                setRibbonOpacity(0.55);
+              },
+            },
+            {
+              id: 'ictal',
+              label: 'Ictal peak',
+              hint: 't=12',
+              description: 'Strong long-range coupling peak frame.',
+              apply: () => {
+                setT(12);
+                setRibbonOpacity(0.7);
+              },
+            },
+            {
+              id: 'sparse',
+              label: 'Sparse ribbons',
+              hint: 'minimal',
+              description: 'Thin ribbons — declutter dense networks.',
+              apply: () => {
+                setRibbonOpacity(0.3);
+                setPadAngle(0.06);
+              },
+            },
+            {
+              id: 'cividis',
+              label: 'Cividis palette',
+              hint: 'palette',
+              description: 'Color-blind safe variant of the chord wheel.',
+              apply: () => {
+                setColormap('cividis');
+              },
+            },
+          ]}
+        />
+      }
       filename="dynamic-chord"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

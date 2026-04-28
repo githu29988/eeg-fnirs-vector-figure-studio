@@ -11,6 +11,7 @@ import { buildLinearAxis } from '../../lib/scales';
 import { sampleColormap } from '../../lib/colormaps';
 import { generateBinaryScores } from '../../lib/synthetic';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 interface ModelSpec {
@@ -157,6 +158,45 @@ function CalibrationChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'balanced',
+              label: 'Balanced cohort',
+              hint: 'baseline',
+              description: 'n=900, π=0.50, 10 reliability bins.',
+              apply: () => {
+                setN(900);
+                setPrevalence(0.5);
+                setBins(10);
+              },
+            },
+            {
+              id: 'rare',
+              label: 'Rare-event cohort',
+              hint: 'clinical',
+              description: 'Low prevalence — calibration tilts upper-left.',
+              apply: () => {
+                setN(2000);
+                setPrevalence(0.08);
+                setBins(8);
+              },
+            },
+            {
+              id: 'finegrain',
+              label: 'Fine-grained bins',
+              hint: 'audit',
+              description: '20 bins to expose miscalibration pockets.',
+              apply: () => {
+                setN(3000);
+                setPrevalence(0.5);
+                setBins(20);
+              },
+            },
+          ]}
+        />
+      }
       filename="calibration-curve"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

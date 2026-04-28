@@ -10,6 +10,7 @@ import {
 import { getColormap, type ColormapName } from '../../lib/colormaps';
 import { mulberry32, randn } from '../../lib/random';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 import {
   EEG_10_20,
@@ -131,6 +132,56 @@ function TopomapChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'eeg',
+              label: 'EEG only',
+              hint: 'modal',
+              description: 'Hide fNIRS — inspect alpha/beta scalp pattern.',
+              apply: () => {
+                setShowEeg(true);
+                setShowFnirs(false);
+                setEegOpacity(1);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'fnirs',
+              label: 'fNIRS only',
+              hint: 'modal',
+              description: 'Hide EEG — see HbO/HbR optical channels.',
+              apply: () => {
+                setShowEeg(false);
+                setShowFnirs(true);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'fused',
+              label: 'Fused multimodal',
+              hint: 'figure',
+              description: 'Both modalities, semi-transparent overlay.',
+              apply: () => {
+                setShowEeg(true);
+                setShowFnirs(true);
+                setEegOpacity(0.55);
+                setShowLabels(true);
+              },
+            },
+            {
+              id: 'highres',
+              label: 'High-res grid',
+              hint: 'export',
+              description: 'Resolution 96 for poster-grade interpolation.',
+              apply: () => {
+                setResolution(96);
+              },
+            },
+          ]}
+        />
+      }
       filename="eeg-fnirs-topomap"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

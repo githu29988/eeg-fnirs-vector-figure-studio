@@ -8,6 +8,7 @@ import {
 } from '../../components/Controls';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 import {
   activationAt,
@@ -125,6 +126,53 @@ function CorticalChart() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'left',
+              label: 'Left lateral view',
+              hint: 'sagittal',
+              description: 'Yaw ≈ −π/2 — classic atlas orientation.',
+              apply: () => {
+                setYaw(-Math.PI / 2);
+                setPitch(0.05);
+              },
+            },
+            {
+              id: 'top',
+              label: 'Vertex (top-down)',
+              hint: 'axial',
+              description: 'Looking straight down at the cortex.',
+              apply: () => {
+                setYaw(0);
+                setPitch(Math.PI / 2 - 0.05);
+              },
+            },
+            {
+              id: 'oblique',
+              label: 'Oblique 3-quarter',
+              hint: 'figure',
+              description: 'Yaw 0.6, pitch 0.25 — the publication default.',
+              apply: () => {
+                setYaw(0.6);
+                setPitch(0.25);
+                setOpacity(0.95);
+              },
+            },
+            {
+              id: 'dense',
+              label: 'Dense mesh',
+              hint: 'export',
+              description: 'Higher facet count for crisp PDF zoom.',
+              apply: () => {
+                setMeshLat(64);
+                setMeshLong(40);
+              },
+            },
+          ]}
+        />
+      }
       filename="cortical-3d"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}

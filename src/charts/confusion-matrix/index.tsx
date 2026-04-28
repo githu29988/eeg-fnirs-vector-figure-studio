@@ -10,6 +10,10 @@ import {
 import { mulberry32, randn } from '../../lib/random';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import {
+  InspirationPanel,
+  type InspirationPreset,
+} from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 
 const DEFAULT_LABELS = ['Inter-ictal', 'Pre-ictal', 'Ictal', 'Post-ictal'];
@@ -103,11 +107,60 @@ function ConfusionMatrixChart() {
     ...cm.flatMap((row, i) => row.map((_, j) => cellValue(i, j))),
   );
 
+  const inspirations: InspirationPreset[] = [
+    {
+      id: 'strong',
+      label: 'Strong classifier',
+      hint: 'baseline',
+      description: 'High class separation, large sample, viridis ramp.',
+      apply: () => {
+        setN(2000);
+        setSeparation(2.6);
+        setNormalize(true);
+        setColormap('viridis');
+      },
+    },
+    {
+      id: 'borderline',
+      label: 'Borderline classifier',
+      hint: 'review',
+      description: 'Confusable classes — recall drops on the diagonal.',
+      apply: () => {
+        setN(1200);
+        setSeparation(0.6);
+        setNormalize(true);
+        setColormap('viridis');
+      },
+    },
+    {
+      id: 'tiny',
+      label: 'Tiny pilot sample',
+      hint: 'caveat',
+      description: 'n=160 with raw counts to expose sample-size noise.',
+      apply: () => {
+        setN(160);
+        setSeparation(1.6);
+        setNormalize(false);
+        setColormap('viridis');
+      },
+    },
+    {
+      id: 'magma',
+      label: 'Magma palette',
+      hint: 'palette',
+      description: 'Same model, swap to magma for a thermal-style print.',
+      apply: () => {
+        setColormap('magma');
+      },
+    },
+  ];
+
   return (
     <ChartShell
       filename="confusion-matrix"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}
+      inspiration={<InspirationPanel presets={inspirations} />}
       inspector={
         <>
           <ControlGroup label="Sample size">

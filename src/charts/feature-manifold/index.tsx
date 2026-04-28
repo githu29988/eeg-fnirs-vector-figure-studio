@@ -12,6 +12,7 @@ import { buildLinearAxis } from '../../lib/scales';
 import { sampleColormap } from '../../lib/colormaps';
 import { generateClusterCloud } from '../../lib/synthetic';
 import type { ExpertSchema } from '../../components/ExpertPanel';
+import { InspirationPanel } from '../../components/InspirationPanel';
 import { registerChart } from '../../registry';
 import { computeConfidenceEllipse } from './ellipse';
 
@@ -95,6 +96,50 @@ function FeatureManifold() {
 
   return (
     <ChartShell
+      inspiration={
+        <InspirationPanel
+          presets={[
+            {
+              id: 'tight',
+              label: 'Tight clusters',
+              hint: 'separable',
+              description: 'Low spread, ellipses on — separability story.',
+              apply: () => {
+                setSpread(0.35);
+                setShowEllipses(true);
+              },
+            },
+            {
+              id: 'overlap',
+              label: 'Overlapping clusters',
+              hint: 'difficult',
+              description: 'High spread — motivates richer features.',
+              apply: () => {
+                setSpread(1.1);
+                setShowEllipses(true);
+              },
+            },
+            {
+              id: 'tsne',
+              label: 't-SNE-like view',
+              hint: 'embedding',
+              description: 'Switch projection method to t-SNE-like.',
+              apply: () => {
+                setEmbedding('tsne-like');
+              },
+            },
+            {
+              id: 'umap',
+              label: 'UMAP-like view',
+              hint: 'embedding',
+              description: 'Switch back to the UMAP-style projection.',
+              apply: () => {
+                setEmbedding('umap-like');
+              },
+            },
+          ]}
+        />
+      }
       filename="feature-manifold"
       getSvg={() => svgRef.current}
       expertSchema={expertSchema}
