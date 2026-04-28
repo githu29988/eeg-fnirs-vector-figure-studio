@@ -8,4 +8,10 @@ import './confusion-matrix';
 import './calibration-curve';
 import './lead-lag-matrix';
 import './ablation-funnel';
+import './eeg-fnirs-topomap';
+import './nvc-alignment';
+import './feature-manifold';
+import './hegat-map';
+import './fusion-flowchart';
+import './spatiotemporal-cnn';
 
