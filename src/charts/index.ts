@@ -14,4 +14,7 @@ import './feature-manifold';
 import './hegat-map';
 import './fusion-flowchart';
 import './spatiotemporal-cnn';
+import './seizure-focus';
+import './dynamic-chord';
+import './cortical-3d';
 

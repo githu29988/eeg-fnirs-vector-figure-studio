@@ -19,4 +19,17 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Chart and registry modules call `registerChart` at import time as
+    // a side-effectful registration. Fast-refresh requires component-
+    // only exports, but here the non-component export is intentional and
+    // never re-rendered after boot. Relax the rule for these paths.
+    files: [
+      'src/charts/**/*.{ts,tsx}',
+      'src/registry.tsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
