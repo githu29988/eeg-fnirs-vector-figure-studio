@@ -147,7 +147,7 @@ function RocPrChart() {
           Synthetic binary classifiers parameterised by a class-separation{' '}
           parameter. Each model uses a fixed seed so the figure is fully
           reproducible. AUC and AP are computed with the trapezoidal rule;
-          confidence intervals come from a 120-iteration bootstrap.
+          confidence intervals come from a {bootstrapIter}-iteration bootstrap.
         </p>
       }
       figure={
@@ -156,7 +156,7 @@ function RocPrChart() {
           width={W}
           height={H + 80}
           title="Publication-ready ROC and Precision–Recall curves"
-          caption={`AUC ranges with 95% CI from a bootstrap (B=120). Synthetic data, n=${n}.`}
+          caption={`AUC ranges with 95% CI from a bootstrap (B=${bootstrapIter}). Synthetic data, n=${n}.`}
         >
           {/* Two side-by-side panels */}
           <g transform={`translate(${margin.left}, ${margin.top})`}>
