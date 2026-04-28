@@ -84,7 +84,7 @@ export function DataLoader() {
           ref={inputRef}
           type="file"
           multiple
-          accept=".edf,.bdf,.tsv,.json"
+          accept=".edf,.tsv,.json"
           className="hidden"
           onChange={(e) => onFiles(e.target.files)}
         />

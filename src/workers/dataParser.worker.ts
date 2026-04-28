@@ -90,7 +90,7 @@ async function parseFiles(files: File[]): Promise<ParsedDataset> {
 
   for (const f of files) {
     const name = f.name.toLowerCase();
-    if (name.endsWith('.edf') || name.endsWith('.bdf')) {
+    if (name.endsWith('.edf')) {
       if (edfFile) {
         notes.push(`Multiple EDF files dropped — using ${edfFile.name}, ignoring ${f.name}.`);
       } else {

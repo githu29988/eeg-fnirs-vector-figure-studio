@@ -21,6 +21,10 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
     setStatus({ kind: 'loading', files: files.map((f) => f.name) });
     const worker = spawnWorker();
     await new Promise<void>((resolve) => {
+      const finish = () => {
+        worker.terminate();
+        resolve();
+      };
       worker.addEventListener(
         'message',
         (event: MessageEvent<WorkerResponse>) => {
@@ -30,8 +34,32 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
           } else {
             setStatus({ kind: 'error', message: msg.message });
           }
-          worker.terminate();
-          resolve();
+          finish();
+        },
+        { once: true },
+      );
+      // Worker module-load failures and uncaught crashes never
+      // post a `message`; without an `error` listener the UI
+      // would stay stuck in `loading`.
+      worker.addEventListener(
+        'error',
+        (e) => {
+          setStatus({
+            kind: 'error',
+            message: e.message || 'Worker crashed unexpectedly.',
+          });
+          finish();
+        },
+        { once: true },
+      );
+      worker.addEventListener(
+        'messageerror',
+        () => {
+          setStatus({
+            kind: 'error',
+            message: 'Worker returned a message that could not be deserialised.',
+          });
+          finish();
         },
         { once: true },
       );

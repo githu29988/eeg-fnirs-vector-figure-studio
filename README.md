@@ -144,10 +144,14 @@ its sidebar and the scalp field is rebuilt from the loaded channels.
 
 Supported now:
 
-- **EDF / EDF+ / BDF** — full header + signal-record decoding to
-  `Float32Array` channels; annotation pseudo-channels (`EDF
-  Annotations`) are filtered from the numeric list. Parser is
-  zero-dependency and runs in a Web Worker.
+- **EDF / EDF+** — full header + signal-record decoding to
+  `Float32Array` channels (16-bit little-endian samples → physical
+  units via the standard digital→physical linear transform).
+  Annotation pseudo-channels (`EDF Annotations`) are filtered from
+  the numeric list. Parser is zero-dependency and runs in a Web
+  Worker. **BDF (24-bit)** is *not* yet supported — it shares the
+  EDF-style header but uses 3-byte samples; a follow-up will add
+  it without sharing this code path.
 - **BIDS sidecars** — `*_channels.tsv`, `*_electrodes.tsv`,
   `*_eeg.json` / `*_nirs.json` are parsed alongside the EDF when
   dropped together. Sidecar fields are exposed via the
