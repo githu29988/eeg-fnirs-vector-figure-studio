@@ -46,7 +46,15 @@ export const FigureFrame = forwardRef<SVGSVGElement, FigureFrameProps>(
         xmlns="http://www.w3.org/2000/svg"
       >
         {title ? (
-          <foreignObject x={0} y={4} width={width} height={padTop}>
+          <foreignObject
+            x={0}
+            y={4}
+            width={width}
+            height={padTop}
+            data-latex={title}
+            data-latex-font-size={14}
+            data-latex-font-weight={600}
+          >
             <div
               ref={titleRef}
               style={{
@@ -68,6 +76,9 @@ export const FigureFrame = forwardRef<SVGSVGElement, FigureFrameProps>(
             y={height - padBottom}
             width={width}
             height={padBottom}
+            data-latex={caption}
+            data-latex-font-size={12}
+            data-latex-font-style="italic"
           >
             <div
               ref={captionRef}
