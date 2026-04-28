@@ -89,9 +89,6 @@ function SeizureFocusChart() {
     return contours().size([gridSize, gridSize]).thresholds(t)(field);
   }, [field, gridSize, max, thresholds]);
 
-  // Convert grid coords to head-disc coords.
-  const transform = `translate(${cx - radius}, ${cy - radius}) scale(${(2 * radius) / (gridSize - 1)})`;
-
   return (
     <ChartShell
       filename="seizure-focus"
@@ -142,25 +139,40 @@ function SeizureFocusChart() {
           caption="d3-contour over a 2D importance grid clipped to the unit head disc."
         >
           <defs>
-            <clipPath id="focus-clip">
+            <clipPath id="focus-clip" clipPathUnits="userSpaceOnUse">
               <circle cx={cx} cy={cy} r={radius} />
             </clipPath>
           </defs>
-          {/* Head outline */}
-          <circle cx={cx} cy={cy} r={radius} fill="white" stroke="#0d1117" strokeWidth={1.5} />
+          {/* Head outline (decorative; field is already zero outside disc) */}
+          <circle cx={cx} cy={cy} r={radius} fill="#fafafa" stroke="#0d1117" strokeWidth={1.5} />
 
-          <g clipPath="url(#focus-clip)" transform={transform}>
-            {contourGen.map((c, i) => {
+          <g clipPath="url(#focus-clip)">
+            {contourGen.flatMap((c, i) => {
               const t = (i + 1) / contourGen.length;
-              return (
-                <path
-                  key={i}
-                  d={d3PathFromContour(c)}
-                  fill={interp(t)}
-                  fillOpacity={0.55}
-                  stroke={interp(Math.min(1, t + 0.1))}
-                  strokeWidth={0.6 / ((2 * radius) / (gridSize - 1))}
-                />
+              const fill = interp(t);
+              const stroke = interp(Math.min(1, t + 0.1));
+              const strokeW = 0.8;
+              return c.coordinates.flatMap((polygon, pi) =>
+                polygon.map((ring, ri) => {
+                  const points = ring
+                    .map(([x, y]) => {
+                      const px = cx - radius + x * ((2 * radius) / (gridSize - 1));
+                      const py = cy - radius + y * ((2 * radius) / (gridSize - 1));
+                      return `${px.toFixed(2)},${py.toFixed(2)}`;
+                    })
+                    .join(' ');
+                  return (
+                    <polygon
+                      key={`${i}-${pi}-${ri}`}
+                      points={points}
+                      fill={ri === 0 ? fill : '#fafafa'}
+                      fillOpacity={ri === 0 ? 0.65 : 1}
+                      stroke={stroke}
+                      strokeWidth={strokeW}
+                      strokeOpacity={ri === 0 ? 0.85 : 0}
+                    />
+                  );
+                }),
               );
             })}
           </g>
@@ -221,21 +233,6 @@ function SeizureFocusChart() {
       }
     />
   );
-}
-
-// Minimal `d` builder for d3-contour MultiPolygon GeoJSON.
-function d3PathFromContour(contour: { coordinates: number[][][][] }): string {
-  let path = '';
-  for (const polygon of contour.coordinates) {
-    for (const ring of polygon) {
-      for (let i = 0; i < ring.length; i++) {
-        const [x, y] = ring[i];
-        path += i === 0 ? `M${x},${y}` : `L${x},${y}`;
-      }
-      path += 'Z';
-    }
-  }
-  return path;
 }
 
 registerChart({
