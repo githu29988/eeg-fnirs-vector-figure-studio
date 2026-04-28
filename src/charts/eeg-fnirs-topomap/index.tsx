@@ -11,6 +11,9 @@ import { getColormap, type ColormapName } from '../../lib/colormaps';
 import { mulberry32, randn } from '../../lib/random';
 import type { ExpertSchema } from '../../components/ExpertPanel';
 import { InspirationPanel } from '../../components/InspirationPanel';
+import { useDataset } from '../../lib/useDataset';
+import { DataLoader } from '../../components/DataLoader';
+import type { ParsedDataset } from '../../workers/dataParser.worker';
 import { registerChart } from '../../registry';
 import {
   EEG_10_20,
@@ -22,6 +25,44 @@ import {
 interface ScalpField {
   /** Activation values for each EEG electrode, normalised to [-1, 1]. */
   values: number[];
+}
+
+/**
+ * Build a scalp field from a parsed EDF dataset by mapping channel
+ * labels onto the 10-20 layout. Only channels whose name matches a
+ * 10-20 electrode (case-insensitive) contribute. The value for each
+ * electrode is the mean amplitude over a 1-s window centred on
+ * `frameSec`.
+ */
+function scalpFieldFromDataset(
+  dataset: ParsedDataset,
+  frameSec: number,
+): { field: ScalpField; matchedNames: string[] } {
+  const byName = new Map<string, (typeof dataset.channels)[number]>();
+  for (const c of dataset.channels) {
+    byName.set(c.label.toLowerCase(), c);
+  }
+  const matched: string[] = [];
+  const values = EEG_10_20.map((e) => {
+    const ch = byName.get(e.name.toLowerCase());
+    if (!ch || ch.fs <= 0) return 0;
+    const halfWindow = Math.max(1, Math.round(ch.fs / 2));
+    const centre = Math.min(
+      ch.samples.length - 1,
+      Math.max(0, Math.round(frameSec * ch.fs)),
+    );
+    const lo = Math.max(0, centre - halfWindow);
+    const hi = Math.min(ch.samples.length, centre + halfWindow);
+    let sum = 0;
+    for (let i = lo; i < hi; i++) sum += ch.samples[i];
+    matched.push(e.name);
+    return sum / Math.max(1, hi - lo);
+  });
+  const max = Math.max(...values.map(Math.abs));
+  return {
+    field: { values: values.map((v) => v / (max || 1)) },
+    matchedNames: matched,
+  };
 }
 
 function generateScalpField(seed: number): ScalpField {
@@ -66,9 +107,29 @@ function TopomapChart() {
   const [resolution, setResolution] = useState(48);
   const [seed, setSeed] = useState(7);
   const [showLabels, setShowLabels] = useState(true);
+  const [frameSec, setFrameSec] = useState(0);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const field = useMemo(() => generateScalpField(seed), [seed]);
+  const { status } = useDataset();
+  const loaded = status.kind === 'loaded' ? status.dataset : null;
+  const maxFrame = useMemo(() => {
+    if (!loaded) return 0;
+    let max = 0;
+    for (const c of loaded.channels) {
+      if (c.fs > 0) max = Math.max(max, c.samples.length / c.fs);
+    }
+    return max;
+  }, [loaded]);
+
+  const { field, matchedNames } = useMemo(() => {
+    if (loaded) {
+      return scalpFieldFromDataset(loaded, frameSec);
+    }
+    return {
+      field: generateScalpField(seed),
+      matchedNames: [] as string[],
+    };
+  }, [loaded, frameSec, seed]);
 
   const expertSchema: ExpertSchema = [
     {
@@ -95,6 +156,42 @@ function TopomapChart() {
         { type: 'info', key: 'oN', label: 'fNIRS optodes', value: String(FNIRS_OPTODES.length) },
         { type: 'info', key: 'pN', label: 'fNIRS S–D pairs', value: String(FNIRS_PAIRS.length) },
       ],
+    },
+    {
+      label: 'Loaded data',
+      description: loaded
+        ? `EDF: ${loaded.fileNames.join(', ')}`
+        : 'No EDF loaded — synthetic field is in use.',
+      fields: loaded
+        ? [
+            {
+              type: 'number',
+              key: 'frame',
+              label: 'time (s)',
+              min: 0,
+              max: Math.max(0, maxFrame - 1),
+              step: 0.1,
+              value: frameSec,
+              onChange: setFrameSec,
+              slider: true,
+              format: (v: number) => `${v.toFixed(1)} s`,
+            },
+            {
+              type: 'info',
+              key: 'matched',
+              label: 'matched 10-20',
+              value: `${matchedNames.length} / ${EEG_10_20.length}`,
+            },
+            {
+              type: 'info',
+              key: 'duration',
+              label: 'duration (s)',
+              value: maxFrame.toFixed(1),
+            },
+          ]
+        : [
+            { type: 'info', key: 'src', label: 'source', value: 'synthetic' },
+          ],
     },
   ];
 
@@ -132,6 +229,7 @@ function TopomapChart() {
 
   return (
     <ChartShell
+      dataLoader={<DataLoader />}
       inspiration={
         <InspirationPanel
           presets={[

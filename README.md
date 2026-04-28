@@ -135,6 +135,38 @@ npm run lint
 
 ---
 
+## Data ingestion
+
+Charts default to seeded synthetic data so the studio is useful with
+zero setup. The **EEG–fNIRS Co-registration Topomap** also accepts
+real recordings: drop the files into the *Data ingestion* panel in
+its sidebar and the scalp field is rebuilt from the loaded channels.
+
+Supported now:
+
+- **EDF / EDF+** — full header + signal-record decoding to
+  `Float32Array` channels (16-bit little-endian samples → physical
+  units via the standard digital→physical linear transform).
+  Annotation pseudo-channels (`EDF Annotations`) are filtered from
+  the numeric list. Parser is zero-dependency and runs in a Web
+  Worker. **BDF (24-bit)** is *not* yet supported — it shares the
+  EDF-style header but uses 3-byte samples; a follow-up will add
+  it without sharing this code path.
+- **BIDS sidecars** — `*_channels.tsv`, `*_electrodes.tsv`,
+  `*_eeg.json` / `*_nirs.json` are parsed alongside the EDF when
+  dropped together. Sidecar fields are exposed via the
+  `useDataset()` hook for opt-in charts.
+
+Channel-to-electrode mapping in the topomap is by name match against
+the standard 10-20 layout (case-insensitive). Channels that don't
+match a 10-20 site are ignored; the *Loaded data* group of the
+Expert tree shows the matched count.
+
+Not yet supported (tracked as Phase 2 follow-ups):
+
+- **SNIRF** — HDF5 container; needs `h5wasm` (~2 MB runtime).
+- **EDF streaming** — files >50 MB still load fully into memory.
+
 ## Chart catalogue (v1)
 
 All 14 figures ship with a seeded synthetic data generator, a Simple
@@ -194,9 +226,10 @@ on HeGAT-Map).
   data; SVG-first vector pipeline; DPI-configurable PNG export; KaTeX
   titles + captions; Simple inspector per chart.
 - **Phase 2 — Alpha.** ✅ MathJax SVG output for true vector formulas;
-  ✅ Expert mode parameter tree; ✅ Inspiration variant tiles.
-  Real-data ingestion (BIDS / SNIRF / EDF via Web Workers) is the
-  remaining Phase 2 item.
+  ✅ Expert mode parameter tree; ✅ Inspiration variant tiles;
+  ✅ EDF + BIDS sidecar ingestion (Web Worker) wired to the topomap.
+  SNIRF (HDF5) parsing is the last remaining Phase 2 item; tracked
+  as a follow-up because it requires a 2 MB+ WASM runtime.
 - **Phase 3 — Beta.** Project workspace + snapshots + IndexedDB cache;
   batch export and quality-check engine; live KaTeX editor.
 - **Phase 4 — v1.0.** Tauri-packaged desktop builds for Windows /

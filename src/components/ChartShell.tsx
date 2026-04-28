@@ -15,6 +15,8 @@ interface ChartShellProps {
   expertSchema?: ExpertSchema;
   /** Variant tiles ("Inspiration panel") rendered below the inspector. */
   inspiration?: ReactNode;
+  /** Optional data-ingestion panel rendered above the inspector. */
+  dataLoader?: ReactNode;
   /** Optional notes / data-format docs rendered under the figure. */
   notes?: ReactNode;
 }
@@ -38,6 +40,7 @@ export function ChartShell({
   inspector,
   expertSchema,
   inspiration,
+  dataLoader,
   notes,
 }: ChartShellProps) {
   const hasExpert = !!expertSchema && expertSchema.length > 0;
@@ -47,6 +50,7 @@ export function ChartShell({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="space-y-5">
+        {dataLoader}
         {inspector || hasExpert ? (
           <section className="rounded-lg border border-ink-700 bg-ink-900 p-4">
             <header className="mb-3 flex items-start justify-between gap-2">
