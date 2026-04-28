@@ -1,0 +1,30 @@
+@import 'katex/dist/katex.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ink-950 text-ink-100 font-sans antialiased;
+  font-feature-settings: 'cv11', 'ss01', 'tnum';
+}
+
+.figure-svg text {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.figure-svg .axis path,
+.figure-svg .axis line {
+  stroke: currentColor;
+  shape-rendering: crispEdges;
+}
