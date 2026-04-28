@@ -9,6 +9,7 @@ import {
 } from '../../components/Controls';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
 import { mulberry32, randn } from '../../lib/random';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 import {
   EEG_10_20,
@@ -62,9 +63,39 @@ function TopomapChart() {
   const [eegOpacity, setEegOpacity] = useState(0.6);
   const [colormap, setColormap] = useState<ColormapName>('coolwarm');
   const [resolution, setResolution] = useState(48);
+  const [seed, setSeed] = useState(7);
+  const [showLabels, setShowLabels] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const field = useMemo(() => generateScalpField(7), []);
+  const field = useMemo(() => generateScalpField(seed), [seed]);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Layers',
+      fields: [
+        { type: 'toggle', key: 'eeg', label: 'EEG topomap layer', value: showEeg, onChange: setShowEeg },
+        { type: 'toggle', key: 'fnirs', label: 'fNIRS optodes layer', value: showFnirs, onChange: setShowFnirs },
+        { type: 'toggle', key: 'lbl', label: 'Channel labels', value: showLabels, onChange: setShowLabels },
+      ],
+    },
+    {
+      label: 'EEG field',
+      fields: [
+        { type: 'number', key: 'op', label: 'opacity', min: 0, max: 1, step: 0.05, value: eegOpacity, onChange: setEegOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'res', label: 'grid resolution', min: 12, max: 160, step: 2, value: resolution, onChange: setResolution, slider: true },
+        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+      ],
+    },
+    {
+      label: 'Hardware',
+      fields: [
+        { type: 'info', key: 'eN', label: 'EEG electrodes', value: String(EEG_10_20.length) },
+        { type: 'info', key: 'oN', label: 'fNIRS optodes', value: String(FNIRS_OPTODES.length) },
+        { type: 'info', key: 'pN', label: 'fNIRS S–D pairs', value: String(FNIRS_PAIRS.length) },
+      ],
+    },
+  ];
 
   const W = 640;
   const H = 640;
@@ -102,6 +133,7 @@ function TopomapChart() {
     <ChartShell
       filename="eeg-fnirs-topomap"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Layers">
@@ -193,15 +225,17 @@ function TopomapChart() {
             >
               <circle r={5} fill="white" stroke="#0d1117" strokeWidth={1} />
               <circle r={3} fill={showEeg ? interp(tFromV(field.values[i])) : '#0d1117'} />
-              <text
-                x={6}
-                y={-6}
-                fontSize={10}
-                fontFamily='"JetBrains Mono", monospace'
-                fill="#0d1117"
-              >
-                {e.name}
-              </text>
+              {showLabels ? (
+                <text
+                  x={6}
+                  y={-6}
+                  fontSize={10}
+                  fontFamily='"JetBrains Mono", monospace'
+                  fill="#0d1117"
+                >
+                  {e.name}
+                </text>
+              ) : null}
             </g>
           ))}
 
@@ -251,15 +285,17 @@ function TopomapChart() {
                       transform="rotate(45)"
                     />
                   )}
-                  <text
-                    x={6}
-                    y={-6}
-                    fontSize={9}
-                    fontFamily='"JetBrains Mono", monospace'
-                    fill={o.type === 'source' ? '#7f1d1d' : '#1e3a8a'}
-                  >
-                    {o.name}
-                  </text>
+                  {showLabels ? (
+                    <text
+                      x={6}
+                      y={-6}
+                      fontSize={9}
+                      fontFamily='"JetBrains Mono", monospace'
+                      fill={o.type === 'source' ? '#7f1d1d' : '#1e3a8a'}
+                    >
+                      {o.name}
+                    </text>
+                  ) : null}
                 </g>
               ))}
             </g>

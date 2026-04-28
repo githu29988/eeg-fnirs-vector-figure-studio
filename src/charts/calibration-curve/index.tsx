@@ -10,6 +10,7 @@ import { XAxis, YAxis } from '../../components/Axis';
 import { buildLinearAxis } from '../../lib/scales';
 import { sampleColormap } from '../../lib/colormaps';
 import { generateBinaryScores } from '../../lib/synthetic';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 interface ModelSpec {
@@ -86,14 +87,37 @@ function computeCalibration(
 function CalibrationChart() {
   const [n, setN] = useState(900);
   const [bins, setBins] = useState(10);
+  const [prevalence, setPrevalence] = useState(0.5);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Sample',
+      fields: [
+        { type: 'number', key: 'n', label: 'n per model', min: 100, max: 5000, step: 50, value: n, onChange: setN, slider: true },
+        { type: 'number', key: 'pi', label: 'positive prevalence', min: 0.05, max: 0.95, step: 0.01, value: prevalence, onChange: setPrevalence, slider: true, format: (v) => v.toFixed(2) },
+      ],
+    },
+    {
+      label: 'Reliability bins',
+      fields: [
+        { type: 'number', key: 'b', label: 'bin count', min: 4, max: 30, step: 1, value: bins, onChange: setBins, slider: true },
+      ],
+    },
+    {
+      label: 'Models',
+      fields: [
+        { type: 'info', key: 'm', label: 'count', value: String(MODELS.length) },
+      ],
+    },
+  ];
 
   const models = useMemo<ModelCalibration[]>(() => {
     return MODELS.map((spec) => {
       const data = generateBinaryScores(
         100 * spec.seedOffset,
         n,
-        0.5,
+        prevalence,
         spec.separation,
       );
       const adjusted = {
@@ -103,7 +127,7 @@ function CalibrationChart() {
       const { bins: b, ece } = computeCalibration(adjusted.y, adjusted.scores, bins);
       return { spec, bins: b, ece };
     });
-  }, [n, bins]);
+  }, [n, bins, prevalence]);
 
   const palette = sampleColormap('viridis', MODELS.length);
 
@@ -135,6 +159,7 @@ function CalibrationChart() {
     <ChartShell
       filename="calibration-curve"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Sample size">

@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ExportToolbar } from './ExportToolbar';
+import { ExpertPanel, type ExpertSchema } from './ExpertPanel';
 
 interface ChartShellProps {
   /** The figure itself, wrapped in a `FigureFrame`. */
@@ -10,42 +11,70 @@ interface ChartShellProps {
   filename: string;
   /** Simple-mode inspector contents (handful of high-impact controls). */
   inspector?: ReactNode;
+  /** Full parameter tree exposed in expert mode. */
+  expertSchema?: ExpertSchema;
   /** Variant tiles ("Inspiration panel") rendered below the inspector. */
   inspiration?: ReactNode;
   /** Optional notes / data-format docs rendered under the figure. */
   notes?: ReactNode;
 }
 
+type Mode = 'simple' | 'expert';
+
 /**
  * Two-column shell used by every chart page: left panel for the
  * controls + inspiration tiles, right panel for the figure itself
  * and its export toolbar.
  *
- * The split is responsive — on narrow viewports the controls collapse
- * above the figure.
+ * The control panel exposes two modes: a curated *Simple* inspector
+ * (3–5 high-impact knobs) and an *Expert* parameter tree generated
+ * from a chart-supplied schema. Toggle persists per session via
+ * component state — switching charts resets to Simple by default.
  */
 export function ChartShell({
   figure,
   getSvg,
   filename,
   inspector,
+  expertSchema,
   inspiration,
   notes,
 }: ChartShellProps) {
+  const hasExpert = !!expertSchema && expertSchema.length > 0;
+  const [mode, setMode] = useState<Mode>('simple');
+  const activeMode: Mode = hasExpert ? mode : 'simple';
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="space-y-5">
-        {inspector ? (
+        {inspector || hasExpert ? (
           <section className="rounded-lg border border-ink-700 bg-ink-900 p-4">
-            <header className="mb-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-                Simple inspector
-              </p>
-              <p className="text-[11px] text-ink-300">
-                Core controls. Open expert mode for the full parameter tree.
-              </p>
+            <header className="mb-3 flex items-start justify-between gap-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
+                  {activeMode === 'expert'
+                    ? 'Expert parameter tree'
+                    : 'Simple inspector'}
+                </p>
+                <p className="text-[11px] text-ink-300">
+                  {activeMode === 'expert'
+                    ? 'Full parameter surface; collapse groups for focus.'
+                    : hasExpert
+                    ? 'Core controls. Switch to expert for the full tree.'
+                    : 'Core controls.'}
+                </p>
+              </div>
+              {hasExpert ? (
+                <ModeToggle mode={mode} onChange={setMode} />
+              ) : null}
             </header>
-            <div className="space-y-3">{inspector}</div>
+            <div className="space-y-3">
+              {activeMode === 'expert' && expertSchema ? (
+                <ExpertPanel schema={expertSchema} />
+              ) : (
+                inspector
+              )}
+            </div>
           </section>
         ) : null}
         {inspiration ? (
@@ -78,6 +107,40 @@ export function ChartShell({
           </div>
         ) : null}
       </section>
+    </div>
+  );
+}
+
+function ModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: Mode;
+  onChange: (m: Mode) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Inspector mode"
+      className="flex shrink-0 rounded border border-ink-600 bg-ink-800 p-0.5 text-[10px]"
+    >
+      {(['simple', 'expert'] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          role="tab"
+          aria-selected={mode === m}
+          onClick={() => onChange(m)}
+          className={
+            'rounded px-2 py-0.5 font-medium uppercase tracking-wider transition-colors ' +
+            (mode === m
+              ? 'bg-accent text-ink-900'
+              : 'text-ink-300 hover:text-ink-100')
+          }
+        >
+          {m}
+        </button>
+      ))}
     </div>
   );
 }
