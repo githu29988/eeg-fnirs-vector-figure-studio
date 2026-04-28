@@ -15,10 +15,15 @@ export function ExportToolbar({
   const [dpi, setDpi] = useState(300);
   const [busy, setBusy] = useState(false);
 
-  const onSvg = () => {
+  const onSvg = async () => {
     const svg = getSvg();
     if (!svg) return;
-    exportSvg(svg, `${baseFilename}.svg`);
+    try {
+      setBusy(true);
+      await exportSvg(svg, `${baseFilename}.svg`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onPng = async () => {
@@ -41,9 +46,10 @@ export function ExportToolbar({
       <button
         type="button"
         onClick={onSvg}
-        className="rounded border border-ink-600 bg-ink-800 px-3 py-1.5 font-medium text-ink-50 hover:border-accent hover:text-accent"
+        disabled={busy}
+        className="rounded border border-ink-600 bg-ink-800 px-3 py-1.5 font-medium text-ink-50 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Export SVG
+        {busy ? 'Rendering…' : 'Export SVG'}
       </button>
       <div className="flex items-center gap-1">
         <button
