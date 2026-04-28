@@ -11,6 +11,7 @@ import { XAxis, YAxis } from '../../components/Axis';
 import { buildLinearAxis } from '../../lib/scales';
 import { sampleColormap } from '../../lib/colormaps';
 import { generateBinaryScores } from '../../lib/synthetic';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 import {
   bootstrapAucCi,
@@ -44,6 +45,8 @@ interface ComputedModel {
 function RocPrChart() {
   const [n, setN] = useState(420);
   const [showCi, setShowCi] = useState(true);
+  const [bootstrapIter, setBootstrapIter] = useState(120);
+  const [prevalence, setPrevalence] = useState(0.5);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const models = useMemo<ComputedModel[]>(() => {
@@ -51,15 +54,38 @@ function RocPrChart() {
       const data = generateBinaryScores(
         100 * spec.seedOffset,
         n,
-        0.5,
+        prevalence,
         spec.separation,
       );
       const roc = computeRoc(data);
       const pr = computePr(data);
-      const ci = bootstrapAucCi(data, 120, 31 * spec.seedOffset);
+      const ci = bootstrapAucCi(data, bootstrapIter, 31 * spec.seedOffset);
       return { spec, roc, pr, ci };
     });
-  }, [n]);
+  }, [n, prevalence, bootstrapIter]);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Sample',
+      fields: [
+        { type: 'number', key: 'n', label: 'n per model', min: 40, max: 5000, step: 20, value: n, onChange: setN, slider: true },
+        { type: 'number', key: 'pi', label: 'positive prevalence', min: 0.05, max: 0.95, step: 0.01, value: prevalence, onChange: setPrevalence, slider: true, format: (v) => v.toFixed(2) },
+      ],
+    },
+    {
+      label: 'Bootstrap',
+      fields: [
+        { type: 'number', key: 'bi', label: 'iterations', min: 20, max: 1000, step: 10, value: bootstrapIter, onChange: setBootstrapIter, slider: true },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'ci', label: '95% CI in legend', value: showCi, onChange: setShowCi },
+        { type: 'info', key: 'm', label: 'models', value: String(DEFAULT_MODELS.length) },
+      ],
+    },
+  ];
 
   const palette = sampleColormap('viridis', DEFAULT_MODELS.length);
 
@@ -94,6 +120,7 @@ function RocPrChart() {
     <ChartShell
       filename="roc-pr-curves"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Sample size n">
@@ -120,7 +147,7 @@ function RocPrChart() {
           Synthetic binary classifiers parameterised by a class-separation{' '}
           parameter. Each model uses a fixed seed so the figure is fully
           reproducible. AUC and AP are computed with the trapezoidal rule;
-          confidence intervals come from a 120-iteration bootstrap.
+          confidence intervals come from a {bootstrapIter}-iteration bootstrap.
         </p>
       }
       figure={
@@ -129,7 +156,7 @@ function RocPrChart() {
           width={W}
           height={H + 80}
           title="Publication-ready ROC and Precision–Recall curves"
-          caption={`AUC ranges with 95% CI from a bootstrap (B=120). Synthetic data, n=${n}.`}
+          caption={`AUC ranges with 95% CI from a bootstrap (B=${bootstrapIter}). Synthetic data, n=${n}.`}
         >
           {/* Two side-by-side panels */}
           <g transform={`translate(${margin.left}, ${margin.top})`}>

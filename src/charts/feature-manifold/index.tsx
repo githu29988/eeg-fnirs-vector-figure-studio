@@ -11,6 +11,7 @@ import { XAxis, YAxis } from '../../components/Axis';
 import { buildLinearAxis } from '../../lib/scales';
 import { sampleColormap } from '../../lib/colormaps';
 import { generateClusterCloud } from '../../lib/synthetic';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 import { computeConfidenceEllipse } from './ellipse';
 
@@ -23,13 +24,42 @@ function FeatureManifold() {
   const [spread, setSpread] = useState(0.6);
   const [showEllipses, setShowEllipses] = useState(true);
   const [embedding, setEmbedding] = useState<Embedding>('umap-like');
+  const [seedOverride, setSeedOverride] = useState<number | null>(null);
+  const [pointRadius, setPointRadius] = useState(2.4);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const seed = embedding === 'umap-like' ? 19 : 23;
+  const seed = seedOverride ?? (embedding === 'umap-like' ? 19 : 23);
   const points = useMemo(
     () => generateClusterCloud(seed, CLASS_LABELS.length, perClass, spread),
     [seed, perClass, spread],
   );
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Embedding',
+      fields: [
+        { type: 'select', key: 'emb', label: 'algorithm', value: embedding, onChange: (v) => setEmbedding(v as Embedding), options: [
+          { value: 'umap-like', label: 'UMAP-like' },
+          { value: 'tsne-like', label: 't-SNE-like' },
+        ] },
+        { type: 'number', key: 'seed', label: 'seed override', min: 0, max: 9999, step: 1, value: seed, onChange: setSeedOverride },
+      ],
+    },
+    {
+      label: 'Density',
+      fields: [
+        { type: 'number', key: 'pc', label: 'points / class', min: 20, max: 5000, step: 10, value: perClass, onChange: setPerClass, slider: true },
+        { type: 'number', key: 'sp', label: 'cluster spread', min: 0.05, max: 2, step: 0.01, value: spread, onChange: setSpread, slider: true, format: (v) => v.toFixed(2) },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'el', label: 'Confidence ellipses', value: showEllipses, onChange: setShowEllipses },
+        { type: 'number', key: 'pr', label: 'point radius (px)', min: 0.5, max: 6, step: 0.1, value: pointRadius, onChange: setPointRadius, slider: true, format: (v) => v.toFixed(1) },
+      ],
+    },
+  ];
 
   const W = 720;
   const H = 540;
@@ -67,6 +97,7 @@ function FeatureManifold() {
     <ChartShell
       filename="feature-manifold"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Embedding">
@@ -132,7 +163,7 @@ function FeatureManifold() {
                 key={i}
                 cx={xAxis.scale(p.x)}
                 cy={yAxis.scale(p.y)}
-                r={2.4}
+                r={pointRadius}
                 fill={palette[p.label]}
                 fillOpacity={0.55}
               />

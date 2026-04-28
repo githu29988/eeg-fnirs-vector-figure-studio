@@ -7,6 +7,7 @@ import {
   NumberSlider,
 } from '../../components/Controls';
 import { sampleColormap, type ColormapName } from '../../lib/colormaps';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 interface CubeSpec {
@@ -76,7 +77,32 @@ function IsometricCube({ x, y, w, h, d, fill }: IsoCubeProps) {
 function SpatiotemporalCnn() {
   const [colormap, setColormap] = useState<ColormapName>('plasma');
   const [gap, setGap] = useState(60);
+  const [showShapes, setShowShapes] = useState(true);
+  const [scaleW, setScaleW] = useState(80);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Layout',
+      fields: [
+        { type: 'number', key: 'g', label: 'layer gap (px)', min: 16, max: 200, step: 2, value: gap, onChange: setGap, slider: true },
+        { type: 'number', key: 'sw', label: 'time-axis scale (px)', min: 30, max: 200, step: 2, value: scaleW, onChange: setScaleW, slider: true },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'sh', label: 'Tensor shape labels', value: showShapes, onChange: setShowShapes },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+      ],
+    },
+    {
+      label: 'Architecture',
+      fields: [
+        { type: 'info', key: 'l', label: 'layers', value: String(LAYERS.length) },
+      ],
+    },
+  ];
 
   const palette = sampleColormap(colormap, LAYERS.length);
 
@@ -96,7 +122,7 @@ function SpatiotemporalCnn() {
     const out: Array<{ x: number; y: number; w: number; h: number; d: number }> = [];
     let x = margin.left;
     LAYERS.forEach((l) => {
-      const w = 30 + (l.T / dims.Tmax) * 80;
+      const w = 30 + (l.T / dims.Tmax) * scaleW;
       const h = 80 + (l.C / dims.Cmax) * 130;
       const d = 30 + (l.F / dims.Fmax) * 60;
       const y = margin.top + (240 - h) / 2;
@@ -104,12 +130,13 @@ function SpatiotemporalCnn() {
       x += w + d * 0.5 + gap;
     });
     return out;
-  }, [dims, gap, margin.left, margin.top]);
+  }, [dims, gap, scaleW, margin.left, margin.top]);
 
   return (
     <ChartShell
       filename="spatiotemporal-cnn"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Spacing">
@@ -157,16 +184,18 @@ function SpatiotemporalCnn() {
               >
                 {LAYERS[i].label}
               </text>
-              <text
-                x={l.x + l.w / 2}
-                y={l.y + l.h + 36}
-                textAnchor="middle"
-                fontSize={10}
-                fontFamily='"JetBrains Mono", monospace'
-                fill="#334155"
-              >
-                T={LAYERS[i].T}, C={LAYERS[i].C}, F={LAYERS[i].F}
-              </text>
+              {showShapes ? (
+                <text
+                  x={l.x + l.w / 2}
+                  y={l.y + l.h + 36}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontFamily='"JetBrains Mono", monospace'
+                  fill="#334155"
+                >
+                  T={LAYERS[i].T}, C={LAYERS[i].C}, F={LAYERS[i].F}
+                </text>
+              ) : null}
               {/* Connector */}
               {i < layout.length - 1 ? (
                 <path

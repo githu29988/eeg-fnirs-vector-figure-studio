@@ -13,6 +13,7 @@ import {
   generateEegLikeSeries,
   generateHrfLikeSeries,
 } from '../../lib/synthetic';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 interface SeizureBand {
@@ -34,21 +35,49 @@ function NVCChart() {
   const [eegFs, setEegFs] = useState(120);
   const [hrfFs, setHrfFs] = useState(10);
   const [showBands, setShowBands] = useState(true);
+  const [eegSeed, setEegSeed] = useState(11);
+  const [hboSeed, setHboSeed] = useState(13);
+  const [hbrCoupling, setHbrCoupling] = useState(0.7);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Recording',
+      fields: [
+        { type: 'number', key: 'd', label: 'duration (s)', min: 30, max: 600, step: 5, value: duration, onChange: setDuration, slider: true },
+        { type: 'number', key: 'eFs', label: 'EEG fs (Hz)', min: 32, max: 1024, step: 8, value: eegFs, onChange: setEegFs, slider: true },
+        { type: 'number', key: 'hFs', label: 'fNIRS fs (Hz)', min: 1, max: 50, step: 1, value: hrfFs, onChange: setHrfFs, slider: true },
+      ],
+    },
+    {
+      label: 'Synthetic seeds',
+      fields: [
+        { type: 'number', key: 'es', label: 'EEG seed', min: 0, max: 9999, step: 1, value: eegSeed, onChange: setEegSeed },
+        { type: 'number', key: 'hs', label: 'HbO seed', min: 0, max: 9999, step: 1, value: hboSeed, onChange: setHboSeed },
+        { type: 'number', key: 'cp', label: 'HbR coupling (−HbO)', min: 0, max: 1.5, step: 0.05, value: hbrCoupling, onChange: setHbrCoupling, slider: true, format: (v) => v.toFixed(2) },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'b', label: 'Seizure bands', value: showBands, onChange: setShowBands },
+      ],
+    },
+  ];
+
   const eeg = useMemo(
-    () => generateEegLikeSeries(11, duration, eegFs),
-    [duration, eegFs],
+    () => generateEegLikeSeries(eegSeed, duration, eegFs),
+    [eegSeed, duration, eegFs],
   );
   const hbo = useMemo(
-    () => generateHrfLikeSeries(13, duration, hrfFs),
-    [duration, hrfFs],
+    () => generateHrfLikeSeries(hboSeed, duration, hrfFs),
+    [hboSeed, duration, hrfFs],
   );
   const hbr = useMemo(() => {
     // HbR roughly anti-correlates with HbO with a small lag.
-    const out = generateHrfLikeSeries(17, duration, hrfFs);
-    return { t: out.t, v: out.v.map((v) => -v * 0.7) };
-  }, [duration, hrfFs]);
+    const out = generateHrfLikeSeries(hboSeed + 4, duration, hrfFs);
+    return { t: out.t, v: out.v.map((v) => -v * hbrCoupling) };
+  }, [hboSeed, duration, hrfFs, hbrCoupling]);
 
   const W = 820;
   const H = 460;
@@ -122,6 +151,7 @@ function NVCChart() {
     <ChartShell
       filename="nvc-alignment"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Recording">

@@ -7,6 +7,7 @@ import {
   NumberSlider,
 } from '../../components/Controls';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 import {
   activationAt,
@@ -28,9 +29,36 @@ function CorticalChart() {
   const [pitch, setPitch] = useState(0.25);
   const [colormap, setColormap] = useState<ColormapName>('inferno');
   const [opacity, setOpacity] = useState(0.95);
+  const [meshLat, setMeshLat] = useState(48);
+  const [meshLong, setMeshLong] = useState(30);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const mesh = useMemo(() => buildBrainMesh(48, 30), []);
+  const mesh = useMemo(() => buildBrainMesh(meshLat, meshLong), [meshLat, meshLong]);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'View angle',
+      fields: [
+        { type: 'number', key: 'yaw', label: 'yaw', min: -Math.PI, max: Math.PI, step: 0.02, value: yaw, onChange: setYaw, slider: true, format: (v) => `${((v * 180) / Math.PI).toFixed(0)}°` },
+        { type: 'number', key: 'pitch', label: 'pitch', min: -1.2, max: 1.2, step: 0.01, value: pitch, onChange: setPitch, slider: true, format: (v) => `${((v * 180) / Math.PI).toFixed(0)}°` },
+      ],
+    },
+    {
+      label: 'Mesh',
+      description: 'Tessellation density of the procedural cortical surface.',
+      fields: [
+        { type: 'number', key: 'mlat', label: 'longitudes', min: 16, max: 96, step: 2, value: meshLat, onChange: setMeshLat, slider: true },
+        { type: 'number', key: 'mlong', label: 'latitudes', min: 12, max: 60, step: 2, value: meshLong, onChange: setMeshLong, slider: true },
+      ],
+    },
+    {
+      label: 'Render',
+      fields: [
+        { type: 'number', key: 'op', label: 'opacity', min: 0.1, max: 1, step: 0.01, value: opacity, onChange: setOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+      ],
+    },
+  ];
   const hotspots = DEFAULT_HOTSPOTS;
   const interp = getColormap(colormap);
 
@@ -99,6 +127,7 @@ function CorticalChart() {
     <ChartShell
       filename="cortical-3d"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="View angle">

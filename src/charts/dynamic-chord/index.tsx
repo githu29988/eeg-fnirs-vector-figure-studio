@@ -9,6 +9,7 @@ import {
 } from '../../components/Controls';
 import { sampleColormap, type ColormapName } from '../../lib/colormaps';
 import { mulberry32, randn } from '../../lib/random';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 const REGIONS = [
@@ -52,10 +53,38 @@ function generateAttentionTensor(
 function DynamicChordChart() {
   const [t, setT] = useState(8);
   const [colormap, setColormap] = useState<ColormapName>('magma');
+  const [seed, setSeed] = useState(53);
+  const [padAngle, setPadAngle] = useState(0.04);
+  const [ribbonOpacity, setRibbonOpacity] = useState(0.55);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const T = 32;
-  const tensor = useMemo(() => generateAttentionTensor(53, T, REGIONS.length), []);
+  const tensor = useMemo(() => generateAttentionTensor(seed, T, REGIONS.length), [seed]);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Time',
+      fields: [
+        { type: 'number', key: 't', label: `slice / ${T - 1}`, min: 0, max: T - 1, step: 1, value: t, onChange: setT, slider: true },
+        { type: 'info', key: 'T', label: 'frames (T)', value: String(T) },
+        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+      ],
+    },
+    {
+      label: 'Layout',
+      fields: [
+        { type: 'number', key: 'pad', label: 'pad angle (rad)', min: 0, max: 0.2, step: 0.005, value: padAngle, onChange: setPadAngle, slider: true, format: (v) => v.toFixed(3) },
+        { type: 'info', key: 'N', label: 'regions (N)', value: String(REGIONS.length) },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'number', key: 'ro', label: 'ribbon opacity', min: 0, max: 1, step: 0.05, value: ribbonOpacity, onChange: setRibbonOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+      ],
+    },
+  ];
   const slice = tensor[Math.min(T - 1, Math.max(0, t))];
 
   const W = 720;
@@ -67,7 +96,7 @@ function DynamicChordChart() {
 
   const palette = sampleColormap(colormap, REGIONS.length);
 
-  const chordGen = chord().padAngle(0.04).sortSubgroups((a, b) => b - a);
+  const chordGen = chord().padAngle(padAngle).sortSubgroups((a, b) => b - a);
   // d3 ribbon/arc generators carry generic typings that fight with our use
   // of plain JS arc + ribbon objects. Cast the call sites locally rather
   // than importing the half-dozen helper types.
@@ -83,6 +112,7 @@ function DynamicChordChart() {
     <ChartShell
       filename="dynamic-chord"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Time slice">
@@ -147,7 +177,7 @@ function DynamicChordChart() {
                 key={i}
                 d={ribbonGen(c)}
                 fill={palette[c.source.index]}
-                fillOpacity={0.55}
+                fillOpacity={ribbonOpacity}
                 stroke="white"
                 strokeWidth={0.4}
               />

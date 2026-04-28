@@ -12,6 +12,7 @@ import {
   generateLeadLagMatrix,
   generateSignificanceMatrix,
 } from '../../lib/synthetic';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 function regionLabel(i: number, eegCount: number): string {
@@ -30,10 +31,40 @@ function LeadLagChart() {
   const [n, setN] = useState(14);
   const [colormap, setColormap] = useState<ColormapName>('coolwarm');
   const [showStars, setShowStars] = useState(true);
+  const [lagSeed, setLagSeed] = useState(11);
+  const [pSeed, setPSeed] = useState(13);
+  const [showLabels, setShowLabels] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const lags = useMemo(() => generateLeadLagMatrix(11, n), [n]);
-  const pvals = useMemo(() => generateSignificanceMatrix(13, n), [n]);
+  const lags = useMemo(() => generateLeadLagMatrix(lagSeed, n), [lagSeed, n]);
+  const pvals = useMemo(() => generateSignificanceMatrix(pSeed, n), [pSeed, n]);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Channels',
+      fields: [
+        { type: 'number', key: 'n', label: 'N (rows = cols)', min: 4, max: 48, step: 2, value: n, onChange: setN, slider: true },
+        { type: 'info', key: 'eN', label: 'EEG (first half)', value: String(Math.ceil(n / 2)) },
+        { type: 'info', key: 'fN', label: 'fNIRS (second half)', value: String(Math.floor(n / 2)) },
+      ],
+    },
+    {
+      label: 'Seeds',
+      description: 'Synthetic data is reproducible per-seed.',
+      fields: [
+        { type: 'number', key: 'lseed', label: 'lag seed', min: 0, max: 9999, step: 1, value: lagSeed, onChange: setLagSeed },
+        { type: 'number', key: 'pseed', label: 'p-value seed', min: 0, max: 9999, step: 1, value: pSeed, onChange: setPSeed },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'st', label: 'Significance stars', value: showStars, onChange: setShowStars },
+        { type: 'toggle', key: 'lb', label: 'Channel labels', value: showLabels, onChange: setShowLabels },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+      ],
+    },
+  ];
   const eegCount = Math.ceil(n / 2);
 
   const W = 700;
@@ -52,6 +83,7 @@ function LeadLagChart() {
     <ChartShell
       filename="lead-lag-matrix"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Channels">
@@ -159,7 +191,7 @@ function LeadLagChart() {
             />
 
             {/* Row labels */}
-            {Array.from({ length: n }).map((_, i) => (
+            {showLabels && Array.from({ length: n }).map((_, i) => (
               <text
                 key={`r-${i}`}
                 x={-6}
@@ -173,7 +205,7 @@ function LeadLagChart() {
               </text>
             ))}
             {/* Column labels */}
-            {Array.from({ length: n }).map((_, j) => (
+            {showLabels && Array.from({ length: n }).map((_, j) => (
               <text
                 key={`c-${j}`}
                 x={j * cell + cell / 2}

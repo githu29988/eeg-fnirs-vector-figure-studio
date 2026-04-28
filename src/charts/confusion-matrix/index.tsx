@@ -9,6 +9,7 @@ import {
 } from '../../components/Controls';
 import { mulberry32, randn } from '../../lib/random';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 const DEFAULT_LABELS = ['Inter-ictal', 'Pre-ictal', 'Ictal', 'Post-ictal'];
@@ -51,13 +52,38 @@ function ConfusionMatrixChart() {
   const [separation, setSeparation] = useState(1.6);
   const [normalize, setNormalize] = useState(true);
   const [colormap, setColormap] = useState<ColormapName>('viridis');
+  const [seed, setSeed] = useState(42);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const labels = DEFAULT_LABELS;
   const cm = useMemo(
-    () => buildConfusionMatrix({ seed: 42, n, labels, separation }),
-    [n, labels, separation],
+    () => buildConfusionMatrix({ seed, n, labels, separation }),
+    [seed, n, labels, separation],
   );
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Sample',
+      fields: [
+        { type: 'number', key: 'n', label: 'n samples', min: 40, max: 20000, step: 10, value: n, onChange: setN, slider: true },
+        { type: 'number', key: 'seed', label: 'random seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+      ],
+    },
+    {
+      label: 'Classifier',
+      fields: [
+        { type: 'number', key: 'sep', label: 'μ separation', min: 0, max: 6, step: 0.01, value: separation, onChange: setSeparation, slider: true, format: (v) => v.toFixed(2) },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'norm', label: 'Row-normalise (recall view)', value: normalize, onChange: setNormalize },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+        { type: 'info', key: 'classes', label: 'Classes (k)', value: String(labels.length) },
+      ],
+    },
+  ];
 
   const W = 640;
   const H = 480;
@@ -81,6 +107,7 @@ function ConfusionMatrixChart() {
     <ChartShell
       filename="confusion-matrix"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Sample size">

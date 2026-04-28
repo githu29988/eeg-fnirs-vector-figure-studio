@@ -7,6 +7,7 @@ import {
   NumberSlider,
 } from '../../components/Controls';
 import { sampleColormap, type ColormapName } from '../../lib/colormaps';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 interface AblationStep {
@@ -27,16 +28,41 @@ const DEFAULT_STEPS: AblationStep[] = [
 function AblationFunnel() {
   const [maxWidth, setMaxWidth] = useState(420);
   const [colormap, setColormap] = useState<ColormapName>('viridis');
+  const [stepHeight, setStepHeight] = useState(64);
+  const [fillOpacity, setFillOpacity] = useState(0.85);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const steps = DEFAULT_STEPS;
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Geometry',
+      fields: [
+        { type: 'number', key: 'mw', label: 'top trapezoid width (px)', min: 200, max: 600, step: 10, value: maxWidth, onChange: setMaxWidth, slider: true },
+        { type: 'number', key: 'sh', label: 'step height (px)', min: 36, max: 120, step: 2, value: stepHeight, onChange: setStepHeight, slider: true },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'number', key: 'op', label: 'fill opacity', min: 0.2, max: 1, step: 0.05, value: fillOpacity, onChange: setFillOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+      ],
+    },
+    {
+      label: 'Steps',
+      fields: [
+        { type: 'info', key: 's', label: 'count', value: String(steps.length) },
+      ],
+    },
+  ];
   const palette = useMemo(
     () => sampleColormap(colormap, steps.length),
     [colormap, steps.length],
   );
 
   const W = 760;
-  const H = 60 + steps.length * 64;
+  const H = 60 + steps.length * stepHeight;
   const margin = { top: 36, right: 240, bottom: 32, left: 72 };
   const innerW = W - margin.left - margin.right;
   const innerH = H - margin.top - margin.bottom;
@@ -48,6 +74,7 @@ function AblationFunnel() {
     <ChartShell
       filename="ablation-funnel"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Funnel width">
@@ -99,7 +126,7 @@ function AblationFunnel() {
                 i === 0 ? 0 : steps[i].accuracy - steps[i - 1].accuracy;
               return (
                 <g key={i}>
-                  <path d={path} fill={palette[i]} fillOpacity={0.85} stroke="white" strokeWidth={1} />
+                  <path d={path} fill={palette[i]} fillOpacity={fillOpacity} stroke="white" strokeWidth={1} />
                   <text
                     x={cx}
                     y={top + stepH / 2 + 4}

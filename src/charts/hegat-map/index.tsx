@@ -17,6 +17,7 @@ import {
 } from '../../components/Controls';
 import { mulberry32 } from '../../lib/random';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 interface GraphNode {
@@ -73,12 +74,45 @@ function HeGATChart() {
   const [density, setDensity] = useState(0.32);
   const [colormap, setColormap] = useState<ColormapName>('viridis');
   const [showLabels, setShowLabels] = useState(true);
+  const [seed, setSeed] = useState(7);
+  const [iterations, setIterations] = useState(250);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const { nodes, links } = useMemo(
-    () => generateGraph(7, eegN, fnirsN, density),
-    [eegN, fnirsN, density],
+    () => generateGraph(seed, eegN, fnirsN, density),
+    [seed, eegN, fnirsN, density],
   );
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Nodes',
+      fields: [
+        { type: 'number', key: 'e', label: 'EEG count', min: 2, max: 64, step: 1, value: eegN, onChange: setEegN, slider: true },
+        { type: 'number', key: 'f', label: 'fNIRS count', min: 2, max: 64, step: 1, value: fnirsN, onChange: setFnirsN, slider: true },
+      ],
+    },
+    {
+      label: 'Edges',
+      fields: [
+        { type: 'number', key: 'd', label: 'density', min: 0.05, max: 0.9, step: 0.01, value: density, onChange: setDensity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+      ],
+    },
+    {
+      label: 'Force layout',
+      fields: [
+        { type: 'number', key: 'it', label: 'simulation ticks', min: 50, max: 1500, step: 10, value: iterations, onChange: setIterations, slider: true },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'lbl', label: 'Node labels', value: showLabels, onChange: setShowLabels },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+        { type: 'info', key: 'l', label: 'links rendered', value: String(links.length) },
+      ],
+    },
+  ];
 
   const W = 720;
   const H = 540;
@@ -106,9 +140,9 @@ function HeGATChart() {
       .force('center', forceCenter(cx, cy))
       .force('collide', forceCollide(18))
       .stop();
-    for (let i = 0; i < 250; i++) sim.tick();
+    for (let i = 0; i < iterations; i++) sim.tick();
     return simNodes;
-  }, [nodes, links, cx, cy]);
+  }, [nodes, links, cx, cy, iterations]);
 
   const posIndex = new Map(positions.map((p) => [p.id, p]));
 
@@ -116,6 +150,7 @@ function HeGATChart() {
     <ChartShell
       filename="hegat-map"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Nodes">

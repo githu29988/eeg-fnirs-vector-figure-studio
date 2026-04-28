@@ -10,6 +10,7 @@ import {
 } from '../../components/Controls';
 import { getColormap, type ColormapName } from '../../lib/colormaps';
 import { mulberry32, randn } from '../../lib/random';
+import type { ExpertSchema } from '../../components/ExpertPanel';
 import { registerChart } from '../../registry';
 
 interface AnatomicalLandmark {
@@ -67,9 +68,35 @@ function SeizureFocusChart() {
   const [thresholds, setThresholds] = useState(8);
   const [colormap, setColormap] = useState<ColormapName>('inferno');
   const [showLandmarks, setShowLandmarks] = useState(true);
+  const [seed, setSeed] = useState(31);
+  const [labelOpacity, setLabelOpacity] = useState(0.7);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const field = useMemo(() => generateFocusField(31, gridSize), [gridSize]);
+  const field = useMemo(() => generateFocusField(seed, gridSize), [seed, gridSize]);
+
+  const expertSchema: ExpertSchema = [
+    {
+      label: 'Grid',
+      fields: [
+        { type: 'number', key: 'grid', label: 'resolution', min: 16, max: 240, step: 2, value: gridSize, onChange: setGridSize, slider: true },
+        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+      ],
+    },
+    {
+      label: 'Contours',
+      fields: [
+        { type: 'number', key: 't', label: 'threshold count', min: 2, max: 32, step: 1, value: thresholds, onChange: setThresholds, slider: true },
+      ],
+    },
+    {
+      label: 'Display',
+      fields: [
+        { type: 'toggle', key: 'lm', label: 'Anatomical landmarks', value: showLandmarks, onChange: setShowLandmarks },
+        { type: 'number', key: 'lo', label: 'landmark opacity', min: 0, max: 1, step: 0.05, value: labelOpacity, onChange: setLabelOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
+      ],
+    },
+  ];
   const max = useMemo(() => Math.max(...field), [field]);
 
   const W = 640;
@@ -93,6 +120,7 @@ function SeizureFocusChart() {
     <ChartShell
       filename="seizure-focus"
       getSvg={() => svgRef.current}
+      expertSchema={expertSchema}
       inspector={
         <>
           <ControlGroup label="Grid">
@@ -183,6 +211,7 @@ function SeizureFocusChart() {
                 <g
                   key={l.name}
                   transform={`translate(${cx + l.x * radius}, ${cy - l.y * radius})`}
+                  opacity={labelOpacity}
                 >
                   <circle r={3} fill="#0d1117" />
                   <text x={6} y={4} fontSize={11} fontWeight={500} fill="#0d1117">
