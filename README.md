@@ -135,16 +135,70 @@ npm run lint
 
 ---
 
+## Chart catalogue (v1)
+
+All 14 figures ship with a seeded synthetic data generator and a Simple
+inspector exposing 3–5 high-impact controls. Expert mode (full
+parameter tree + inspiration tile recommendations) is scaffolded but
+not yet wired in this release.
+
+### Architecture (3)
+
+1. **Heterogeneous Graph Attention Map** — force-directed bipartite
+   graph between EEG electrodes and fNIRS channels with
+   attention-weighted edges.
+2. **Bimodal Feature Fusion Flowchart** — layered DAG of the EEG/fNIRS
+   fusion network with per-edge tensor-shape annotations.
+3. **Spatiotemporal CNN Architecture** — cabinet-projection cube
+   sequence visualising `T × C × F` evolution through dilated TCN
+   blocks.
+
+### Physiology (3)
+
+4. **EEG–fNIRS Co-registration Topomap** — 10-20 azimuthal scalp map
+   with fNIRS optodes and Banana-shape source–detector photon paths.
+5. **Neurovascular Coupling Alignment** — dual-axis EEG / HbO–HbR time
+   series with seizure-stage highlight bands.
+6. **3.5D Cortical Projection** — procedural brain mesh rendered as
+   depth-sorted SVG triangles with per-vertex activation colouring.
+
+### Clinical (3)
+
+7. **Cross-modal Lead–Lag Correlation Matrix** — EEG↔fNIRS lag matrix
+   with p-value significance stars.
+8. **Seizure Focus Localisation** — d3-contour over a 2D importance
+   grid clipped to the head disc, with anatomical landmarks.
+9. **Dynamic Connectivity Chord** — time-sliceable chord diagram of a
+   `T × N × N` attention tensor.
+
+### Evaluation (5)
+
+10. **ROC + PR curves** — multi-classifier overlay with AUC, AP, and
+    bootstrap 95% confidence intervals.
+11. **Confusion Matrix** — per-class predictions with row-normalisation
+    toggle and contrast-aware annotations.
+12. **Calibration Curve** — reliability diagram with Expected
+    Calibration Error per model, marker size encoding bin count.
+13. **Ablation Contribution Funnel** — trapezoidal funnel showing
+    per-component accuracy delta.
+14. **Feature Manifold (t-SNE / UMAP)** — class-coloured embedding
+    scatter with covariance-derived 95% confidence ellipses.
+
+---
+
 ## Roadmap
 
-- **Phase 1 — MVP.** Scaffold, registry, export, Viridis colourmap,
-  HeGAT-Map and ROC/PR curves.
-- **Phase 2 — Alpha.** WebGL 3.5D cortical projection, dynamic
-  connectivity chord, NVC alignment, t-SNE/UMAP manifolds.
-- **Phase 3 — Beta.** Final SCI-grade typography, KaTeX live editor,
-  DAG fusion-flow auto-layout.
+- **Phase 1 — MVP.** ✅ All 14 figures implemented with seeded synthetic
+  data; SVG-first vector pipeline; DPI-configurable PNG export; KaTeX
+  titles + captions; Simple inspector per chart.
+- **Phase 2 — Alpha.** Real-data ingestion (BIDS / SNIRF / EDF via Web
+  Workers); MathJax SVG output for true vector formulas; Expert mode
+  parameter tree; inspiration-tile recommendations.
+- **Phase 3 — Beta.** Project workspace + snapshots + IndexedDB cache;
+  batch export and quality-check engine; live KaTeX editor.
 - **Phase 4 — v1.0.** Tauri-packaged desktop builds for Windows /
-  macOS, memory-stable large-tensor ingestion, public API.
+  macOS, memory-stable large-tensor ingestion, public render-jobs API,
+  team-version (auth / audit / RLS).
 
 ---
 
