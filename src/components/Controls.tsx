@@ -146,6 +146,45 @@ export function ColormapSelect({
   );
 }
 
+export function TextArea({
+  label,
+  value,
+  onChange,
+  rows = 3,
+  description,
+  placeholder,
+  monospace,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  description?: string;
+  placeholder?: string;
+  monospace?: boolean;
+}) {
+  const id = useId();
+  return (
+    <label htmlFor={id} className="flex flex-col gap-1 text-xs text-ink-200">
+      <span>{label}</span>
+      <textarea
+        id={id}
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+        className={`rounded border border-ink-600 bg-ink-800 px-2 py-1 text-ink-50 focus:border-accent focus:outline-none ${
+          monospace ? 'font-mono text-[11px]' : ''
+        }`}
+      />
+      {description ? (
+        <span className="text-[11px] text-ink-300">{description}</span>
+      ) : null}
+    </label>
+  );
+}
+
 export function Toggle({
   label,
   checked,
