@@ -155,7 +155,7 @@ const GAT_CMC_NET_PANELS: PanelSpec[] = [
     col: 2,
     row: 0,
     category: 'graph',
-    header: 'Heterogeneous  Graph',
+    header: 'Heterogeneous\nGraph',
     body: [
       'EEG  +  fNIRS  nodes',
       'three edge types',
@@ -167,7 +167,7 @@ const GAT_CMC_NET_PANELS: PanelSpec[] = [
     col: 2,
     row: 1,
     category: 'hrf',
-    header: 'Learnable  HRF  Shift',
+    header: 'Learnable\nHRF Shift',
     body: [
       '$\\tilde{x}^{F}_j(t)=\\sum_{\\Delta} g(\\Delta;\\tau_j)\\,x^{F}_j(t-\\Delta)$',
       '$\\tau_j \\in [\\tau_{\\min},\\tau_{\\max}]$',
@@ -181,7 +181,7 @@ const GAT_CMC_NET_PANELS: PanelSpec[] = [
     row: 0,
     rowSpan: 2,
     category: 'graph',
-    header: 'Multi-Head  Heterogeneous  GAT',
+    header: 'Multi-Head\nHeterogeneous GAT',
     body: [
       '',
       '$e_{ij}=\\mathrm{LeakyReLU}\\bigl(\\mathbf{a}^{\\top}[\\mathbf{W}_{r}\\mathbf{h}_i\\,\\Vert\\,\\mathbf{W}_{r\'}\\mathbf{h}_j]\\bigr)$',
@@ -199,7 +199,7 @@ const GAT_CMC_NET_PANELS: PanelSpec[] = [
     row: 0,
     rowSpan: 2,
     category: 'gate',
-    header: 'Gated  Cross-Modal  Fusion',
+    header: 'Gated Cross-Modal\nFusion',
     body: [
       '',
       '$\\mathbf{g}=\\sigma\\!\\bigl(\\mathbf{W}_g[\\mathbf{h}^{E}\\,\\Vert\\,\\mathbf{h}^{F}]+\\mathbf{b}_g\\bigr)$',
@@ -704,8 +704,37 @@ interface PanelProps {
 
 function Panel({ spec, x, y, w, h, headerSize, bodySize }: PanelProps) {
   const style = PALETTE[spec.category];
-  const headerH = headerSize * 1.6 + 12;
-  const bodyHeight = h - headerH - 16;
+  const headerLines = spec.header.split('\n').length;
+  const headerLineH = headerSize * 1.15;
+  const headerH = headerLines * headerLineH + 14;
+
+  // Each body line gets its own <foreignObject data-latex>. The export
+  // pipeline (replaceLatexForeignObjects in lib/export.ts) replaces
+  // every such object with MathJax-rendered SVG glyphs, but only when
+  // `data-latex` is non-empty. Wrapping multiple lines in a single
+  // foreignObject would leave the body un-replaced, producing the
+  // "formulas exported as plain letters" bug.
+  const lineHeight = bodySize * 1.5;
+  const emptyLineHeight = bodySize * 0.5;
+  const bodyTopPad = 6;
+
+  // Compute layout for body lines. Centre the whole body block
+  // vertically inside the available area below the header.
+  const bodyLayout = useMemo(() => {
+    const totalLineH = spec.body.reduce(
+      (acc, ln) => acc + (ln ? lineHeight : emptyLineHeight),
+      0,
+    );
+    const available = h - headerH - bodyTopPad - 4;
+    const offset = headerH + bodyTopPad + Math.max(0, (available - totalLineH) / 2);
+    return spec.body.reduce<{ line: string; y: number; h: number }[]>((acc, line) => {
+      const lh = line ? lineHeight : emptyLineHeight;
+      const prev = acc[acc.length - 1];
+      const y = prev ? prev.y + prev.h : offset;
+      acc.push({ line, y, h: lh });
+      return acc;
+    }, []);
+  }, [spec.body, h, headerH, lineHeight, emptyLineHeight]);
 
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -720,26 +749,14 @@ function Panel({ spec, x, y, w, h, headerSize, bodySize }: PanelProps) {
         stroke={style.edge}
         strokeWidth={1.4}
       />
-      <foreignObject
-        x={0}
-        y={4}
-        width={w}
-        height={headerH}
-        data-latex={spec.header}
-        data-latex-font-size={headerSize}
-        data-latex-font-weight={600}
-      >
-        <PanelHeader text={spec.header} fontSize={headerSize} color={style.edge} />
-      </foreignObject>
-      <foreignObject
-        x={6}
-        y={headerH + 8}
-        width={w - 12}
-        height={bodyHeight}
-        data-latex=""
-      >
-        <PanelBody body={spec.body} fontSize={bodySize} />
-      </foreignObject>
+      <PanelHeaderText
+        text={spec.header}
+        x={w / 2}
+        y={6 + headerSize}
+        fontSize={headerSize}
+        color={style.edge}
+        lineHeight={headerLineH}
+      />
       <line
         x1={12}
         y1={headerH + 4}
@@ -749,19 +766,79 @@ function Panel({ spec, x, y, w, h, headerSize, bodySize }: PanelProps) {
         strokeOpacity={0.25}
         strokeWidth={0.8}
       />
+      {bodyLayout.map((item, i) =>
+        item.line ? (
+          <foreignObject
+            key={i}
+            x={6}
+            y={item.y}
+            width={w - 12}
+            height={item.h}
+            data-latex={item.line}
+            data-latex-font-size={bodySize}
+          >
+            <LatexLine text={item.line} fontSize={bodySize} color="#1c1c1c" />
+          </foreignObject>
+        ) : null,
+      )}
     </g>
   );
 }
 
-function PanelHeader({
+interface PanelHeaderTextProps {
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  color: string;
+  lineHeight: number;
+}
+
+/**
+ * Panel header rendered as a plain SVG `<text>` element with optional
+ * line breaks (`\n`). Headers don't contain math so they don't need to
+ * go through KaTeX/MathJax — using `<text>` here lets us multi-line
+ * wrap long titles cleanly and avoids the issue where MathJax-rendered
+ * single-line headers overflow their panel rectangle.
+ */
+function PanelHeaderText({
   text,
+  x,
+  y,
   fontSize,
   color,
-}: {
+  lineHeight,
+}: PanelHeaderTextProps) {
+  const lines = text.split('\n');
+  const totalH = lines.length * lineHeight;
+  const startY = y + (lineHeight - totalH) / 2;
+  return (
+    <text
+      x={x}
+      y={startY}
+      fontSize={fontSize}
+      fontWeight={600}
+      textAnchor="middle"
+      fill={color}
+      style={{ fontFamily: 'Inter, "Noto Sans SC", system-ui, sans-serif' }}
+    >
+      {lines.map((line, i) => (
+        <tspan key={i} x={x} dy={i === 0 ? 0 : lineHeight}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
+}
+
+interface LatexLineProps {
   text: string;
   fontSize: number;
   color: string;
-}) {
+  fontWeight?: number;
+}
+
+function LatexLine({ text, fontSize, color, fontWeight }: LatexLineProps) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.innerHTML = renderInlineLatex(text);
@@ -773,46 +850,18 @@ function PanelHeader({
         fontFamily:
           'Inter, "Noto Sans SC", system-ui, sans-serif',
         fontSize,
-        fontWeight: 600,
+        fontWeight,
         color,
         textAlign: 'center',
         lineHeight: 1.2,
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     />
   );
-}
-
-function PanelBody({ body, fontSize }: { body: string[]; fontSize: number }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        gap: 4,
-        fontFamily:
-          'Inter, "Noto Sans SC", system-ui, sans-serif',
-        fontSize,
-        color: '#1c1c1c',
-        lineHeight: 1.25,
-        height: '100%',
-        paddingTop: 4,
-      }}
-    >
-      {body.map((line, i) =>
-        line ? <BodyLine key={i} text={line} /> : <span key={i} style={{ height: fontSize * 0.4 }} />,
-      )}
-    </div>
-  );
-}
-
-function BodyLine({ text }: { text: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.innerHTML = renderInlineLatex(text);
-  }, [text]);
-  return <span ref={ref} style={{ textAlign: 'center' }} />;
 }
 
 function legendCategories(panels: PanelSpec[]): Category[] {
