@@ -1,7 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FigureFrame } from '../../components/FigureFrame';
 import { ChartShell } from '../../components/ChartShell';
-import { ControlGroup, NumberSlider, Toggle } from '../../components/Controls';
+import {
+  ControlGroup,
+  NumberSlider,
+  Select,
+  TextArea,
+  Toggle,
+} from '../../components/Controls';
 import type { ExpertSchema } from '../../components/ExpertPanel';
 import { InspirationPanel } from '../../components/InspirationPanel';
 import { renderInlineLatex } from '../../lib/latex';
@@ -29,6 +35,24 @@ interface PanelSpec {
   /** Each entry is a single line; '' means an empty spacer. */
   body: string[];
 }
+
+/**
+ * Per-panel UI overrides. Empty / undefined fields fall back to the
+ * baseline `GAT_CMC_NET_PANELS` entry and the global header / body
+ * font sizes. Stored as a plain map so the inspector can edit each
+ * panel independently without touching the underlying preset.
+ */
+interface PanelOverride {
+  header?: string;
+  /** Newline-delimited lines (one body line per `\n`). */
+  bodyText?: string;
+  headerSize?: number;
+  bodySize?: number;
+  /** Multiplier on `bodySize` for line spacing (default 1.5). */
+  lineSpacing?: number;
+}
+
+type PanelOverrideMap = Record<string, PanelOverride>;
 
 type Anchor = 'right' | 'left' | 'top' | 'bottom' | 'center';
 
@@ -291,7 +315,57 @@ function ArchitectureOverallChart() {
   const [bodySize, setBodySize] = useState(11);
   const [showLegend, setShowLegend] = useState(true);
   const [showSubtitle, setShowSubtitle] = useState(true);
+  const [overrides, setOverrides] = useState<PanelOverrideMap>({});
+  const [selectedPanelId, setSelectedPanelId] = useState<string>(
+    GAT_CMC_NET_PANELS[0].id,
+  );
   const svgRef = useRef<SVGSVGElement>(null);
+
+  const updateOverride = useCallback(
+    (panelId: string, patch: Partial<PanelOverride>) => {
+      setOverrides((prev) => {
+        const cur = prev[panelId] ?? {};
+        const next: PanelOverride = { ...cur, ...patch };
+        // Drop undefined / empty fields so the merge picks defaults.
+        for (const key of Object.keys(next) as (keyof PanelOverride)[]) {
+          if (next[key] === undefined || next[key] === '') delete next[key];
+        }
+        if (Object.keys(next).length === 0) {
+          const { [panelId]: _drop, ...rest } = prev;
+          void _drop;
+          return rest;
+        }
+        return { ...prev, [panelId]: next };
+      });
+    },
+    [],
+  );
+
+  const resetPanel = useCallback((panelId: string) => {
+    setOverrides((prev) => {
+      if (!(panelId in prev)) return prev;
+      const { [panelId]: _drop, ...rest } = prev;
+      void _drop;
+      return rest;
+    });
+  }, []);
+
+  const resetAllOverrides = useCallback(() => setOverrides({}), []);
+
+  /**
+   * Resolve a panel spec by merging the baseline `PanelSpec` with any
+   * UI overrides. The result still satisfies `PanelSpec`, so the
+   * downstream layout / render code is unchanged.
+   */
+  const resolvedPanels = useMemo<PanelSpec[]>(() => {
+    return GAT_CMC_NET_PANELS.map((p) => {
+      const ov = overrides[p.id];
+      if (!ov) return p;
+      const header = ov.header ?? p.header;
+      const body = ov.bodyText !== undefined ? ov.bodyText.split('\n') : p.body;
+      return { ...p, header, body };
+    });
+  }, [overrides]);
 
   // Figure layout.
   //
@@ -322,7 +396,7 @@ function ArchitectureOverallChart() {
 
   const panelMap = useMemo(() => {
     const out = new Map<string, { x: number; y: number; w: number; h: number; spec: PanelSpec }>();
-    for (const p of GAT_CMC_NET_PANELS) {
+    for (const p of resolvedPanels) {
       const x = margin.left + p.col * colSpacing;
       let y: number;
       let h: number;
@@ -336,7 +410,7 @@ function ArchitectureOverallChart() {
       out.set(p.id, { x, y, w: panelWidth, h, spec: p });
     }
     return out;
-  }, [colSpacing, rowSpacing, panelWidth, panelHeight, margin.left, panelTop]);
+  }, [resolvedPanels, colSpacing, rowSpacing, panelWidth, panelHeight, margin.left, panelTop]);
 
   const expertSchema: ExpertSchema = [
     {
@@ -433,7 +507,7 @@ function ArchitectureOverallChart() {
               id: 'gat-cmc',
               label: 'GAT-CMC-Net',
               hint: '出版级',
-              description: '完整带 KaTeX 公式与底部图例的整体架构图。',
+              description: '完整带 KaTeX 公式与底部图例的整体架构图（清空所有模块覆盖）。',
               apply: () => {
                 setColSpacing(180);
                 setRowSpacing(220);
@@ -443,6 +517,7 @@ function ArchitectureOverallChart() {
                 setBodySize(11);
                 setShowLegend(true);
                 setShowSubtitle(true);
+                resetAllOverrides();
               },
             },
             {
@@ -511,6 +586,21 @@ function ArchitectureOverallChart() {
               max={320}
               step={2}
               onChange={setRowSpacing}
+            />
+          </ControlGroup>
+          <ControlGroup
+            label="模块编辑"
+            description="选择某一个模块，单独编辑其文字 / 字号 / 行距。改完即时生效，导出 SVG 同步。"
+          >
+            <PanelEditor
+              panels={resolvedPanels}
+              selectedId={selectedPanelId}
+              onSelect={setSelectedPanelId}
+              overrides={overrides}
+              defaults={{ headerSize, bodySize, lineSpacing: 1.5 }}
+              onPatch={(patch) => updateOverride(selectedPanelId, patch)}
+              onReset={() => resetPanel(selectedPanelId)}
+              onResetAll={resetAllOverrides}
             />
           </ControlGroup>
           <ControlGroup label="显示">
@@ -616,9 +706,10 @@ function ArchitectureOverallChart() {
 
           {/* panels */}
           <g>
-            {GAT_CMC_NET_PANELS.map((p) => {
+            {resolvedPanels.map((p) => {
               const slot = panelMap.get(p.id);
               if (!slot) return null;
+              const ov = overrides[p.id];
               return (
                 <Panel
                   key={p.id}
@@ -627,8 +718,9 @@ function ArchitectureOverallChart() {
                   y={slot.y}
                   w={slot.w}
                   h={slot.h}
-                  headerSize={headerSize}
-                  bodySize={bodySize}
+                  headerSize={ov?.headerSize ?? headerSize}
+                  bodySize={ov?.bodySize ?? bodySize}
+                  lineSpacing={ov?.lineSpacing ?? 1.5}
                 />
               );
             })}
@@ -637,7 +729,7 @@ function ArchitectureOverallChart() {
           {/* legend */}
           {showLegend ? (
             <g transform={`translate(${margin.left}, ${legendY})`}>
-              <Legend categories={legendCategories(GAT_CMC_NET_PANELS)} />
+              <Legend categories={legendCategories(resolvedPanels)} />
             </g>
           ) : null}
         </FigureFrame>
@@ -700,9 +792,11 @@ interface PanelProps {
   h: number;
   headerSize: number;
   bodySize: number;
+  /** Multiplier on `bodySize` for the body line height. */
+  lineSpacing: number;
 }
 
-function Panel({ spec, x, y, w, h, headerSize, bodySize }: PanelProps) {
+function Panel({ spec, x, y, w, h, headerSize, bodySize, lineSpacing }: PanelProps) {
   const style = PALETTE[spec.category];
   const headerLines = spec.header.split('\n').length;
   const headerLineH = headerSize * 1.15;
@@ -714,8 +808,8 @@ function Panel({ spec, x, y, w, h, headerSize, bodySize }: PanelProps) {
   // `data-latex` is non-empty. Wrapping multiple lines in a single
   // foreignObject would leave the body un-replaced, producing the
   // "formulas exported as plain letters" bug.
-  const lineHeight = bodySize * 1.5;
-  const emptyLineHeight = bodySize * 0.5;
+  const lineHeight = bodySize * lineSpacing;
+  const emptyLineHeight = bodySize * (lineSpacing * 0.4);
   const bodyTopPad = 6;
 
   // Compute layout for body lines. Centre the whole body block
@@ -900,6 +994,130 @@ function Legend({ categories }: { categories: Category[] }) {
         </g>
       ))}
     </g>
+  );
+}
+
+/* --------------------------- panel editor -----------------------------*/
+
+interface PanelEditorProps {
+  panels: PanelSpec[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  overrides: PanelOverrideMap;
+  defaults: { headerSize: number; bodySize: number; lineSpacing: number };
+  onPatch: (patch: Partial<PanelOverride>) => void;
+  onReset: () => void;
+  onResetAll: () => void;
+}
+
+/**
+ * Per-panel editor surfaced in the simple inspector. Lets the user
+ * pick a single panel and override its header text, body text, header
+ * font size, body font size and line spacing without rebuilding the
+ * preset. Empty fields fall back to the baseline panel + global font
+ * sizes, so resetting an override is just clearing the value.
+ */
+function PanelEditor({
+  panels,
+  selectedId,
+  onSelect,
+  overrides,
+  defaults,
+  onPatch,
+  onReset,
+  onResetAll,
+}: PanelEditorProps) {
+  const override = overrides[selectedId];
+  const selected =
+    panels.find((p) => p.id === selectedId) ?? panels[0];
+  const headerValue =
+    override?.header !== undefined ? override.header : selected.header;
+  const bodyValue =
+    override?.bodyText !== undefined
+      ? override.bodyText
+      : selected.body.join('\n');
+  const headerSize = override?.headerSize ?? defaults.headerSize;
+  const bodySize = override?.bodySize ?? defaults.bodySize;
+  const lineSpacing = override?.lineSpacing ?? defaults.lineSpacing;
+  const isOverridden = override !== undefined;
+  const hasAnyOverride = Object.keys(overrides).length > 0;
+
+  // Decorate the dropdown label with a small marker for any panel
+  // that already has an active override, so the user can spot which
+  // modules they've already touched.
+  const options = panels.map((p) => {
+    const baseLabel = p.header.replace(/\n/g, ' / ');
+    const marker = p.id in overrides ? '  *' : '';
+    return { value: p.id, label: `${baseLabel}${marker}` };
+  });
+
+  return (
+    <div className="space-y-2.5">
+      <Select
+        label="模块"
+        value={selectedId}
+        options={options}
+        onChange={onSelect}
+      />
+      <TextArea
+        label="标题"
+        value={headerValue}
+        onChange={(v) => onPatch({ header: v })}
+        rows={2}
+        description="支持 \n 换行（在文本里按回车即可）。"
+      />
+      <TextArea
+        label="正文"
+        value={bodyValue}
+        onChange={(v) => onPatch({ bodyText: v })}
+        rows={6}
+        monospace
+        description="每行一条；留空行表示视觉间隔。$...$ 内为 KaTeX 公式。"
+      />
+      <NumberSlider
+        label="标题字号"
+        value={headerSize}
+        min={8}
+        max={22}
+        step={0.5}
+        onChange={(v) => onPatch({ headerSize: v })}
+      />
+      <NumberSlider
+        label="正文字号"
+        value={bodySize}
+        min={6}
+        max={18}
+        step={0.5}
+        onChange={(v) => onPatch({ bodySize: v })}
+      />
+      <NumberSlider
+        label="正文行距"
+        value={lineSpacing}
+        min={1}
+        max={2.5}
+        step={0.05}
+        onChange={(v) => onPatch({ lineSpacing: v })}
+        format={(v) => v.toFixed(2)}
+      />
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button
+          type="button"
+          disabled={!isOverridden}
+          onClick={onReset}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          恢复此模块默认值
+        </button>
+        <button
+          type="button"
+          disabled={!hasAnyOverride}
+          onClick={onResetAll}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          全部模块复位
+        </button>
+      </div>
+    </div>
   );
 }
 
