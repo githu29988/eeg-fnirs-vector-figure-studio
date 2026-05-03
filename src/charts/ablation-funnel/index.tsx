@@ -37,23 +37,23 @@ function AblationFunnel() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Geometry',
+      label: '几何',
       fields: [
-        { type: 'number', key: 'mw', label: 'top trapezoid width (px)', min: 200, max: 600, step: 10, value: maxWidth, onChange: setMaxWidth, slider: true },
-        { type: 'number', key: 'sh', label: 'step height (px)', min: 36, max: 120, step: 2, value: stepHeight, onChange: setStepHeight, slider: true },
+        { type: 'number', key: 'mw', label: '顶部梯形宽度（px）', min: 200, max: 600, step: 10, value: maxWidth, onChange: setMaxWidth, slider: true },
+        { type: 'number', key: 'sh', label: '阶高（px）', min: 36, max: 120, step: 2, value: stepHeight, onChange: setStepHeight, slider: true },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'number', key: 'op', label: 'fill opacity', min: 0.2, max: 1, step: 0.05, value: fillOpacity, onChange: setFillOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'op', label: '填充不透明度', min: 0.2, max: 1, step: 0.05, value: fillOpacity, onChange: setFillOpacity, slider: true, format: (v) => v.toFixed(2) },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
     {
-      label: 'Steps',
+      label: '阶梯',
       fields: [
-        { type: 'info', key: 's', label: 'count', value: String(steps.length) },
+        { type: 'info', key: 's', label: '阶梯数', value: String(steps.length) },
       ],
     },
   ];
@@ -78,9 +78,9 @@ function AblationFunnel() {
           presets={[
             {
               id: 'compact',
-              label: 'Compact print',
+              label: '紧凑打印',
               hint: 'A4',
-              description: 'Narrow funnel for column-width prints.',
+              description: '窄漏斗，适合期刊栏宽印刷。',
               apply: () => {
                 setMaxWidth(300);
                 setStepHeight(48);
@@ -89,9 +89,9 @@ function AblationFunnel() {
             },
             {
               id: 'poster',
-              label: 'Poster scale',
-              hint: 'poster',
-              description: 'Wide steps and tall rows for A0 posters.',
+              label: '海报尺寸',
+              hint: '海报',
+              description: '宽阶高行，适合 A0 海报。',
               apply: () => {
                 setMaxWidth(520);
                 setStepHeight(80);
@@ -100,18 +100,18 @@ function AblationFunnel() {
             },
             {
               id: 'outline',
-              label: 'Outline only',
-              hint: 'minimal',
-              description: 'Low fill, lets typography lead.',
+              label: '仅描边',
+              hint: '极简',
+              description: '低填充，以文字为主。',
               apply: () => {
                 setFillOpacity(0.18);
               },
             },
             {
               id: 'magma',
-              label: 'Magma palette',
-              hint: 'palette',
-              description: 'Thermal warmth for review-friendly contrast.',
+              label: 'Magma 配色',
+              hint: '色彩',
+              description: '热色调增强对比，适合评审阅读。',
               apply: () => {
                 setColormap('magma');
               },
@@ -124,9 +124,9 @@ function AblationFunnel() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Funnel width">
+          <ControlGroup label="漏斗宽度">
             <NumberSlider
-              label="Top trapezoid width (px)"
+              label="顶部梯形宽度（px）"
               value={maxWidth}
               min={240}
               max={520}
@@ -134,17 +134,15 @@ function AblationFunnel() {
               onChange={setMaxWidth}
             />
           </ControlGroup>
-          <ControlGroup label="Palette">
+          <ControlGroup label="配色">
             <ColormapSelect value={colormap} onChange={setColormap} />
           </ControlGroup>
         </>
       }
       notes={
         <p>
-          Each trapezoid encodes test accuracy after removing one model
-          component. Width drops are cumulative: the funnel narrowing
-          visualises how multi-modal fusion compounds gains beyond either
-          modality alone.
+          每个梯形编码移除某一模型组件后的测试准确率。宽度递减体现累积
+          贡献：漏斗变窄揭示多模态融合相较于任何单一模态的叠加增益。
         </p>
       }
       figure={
