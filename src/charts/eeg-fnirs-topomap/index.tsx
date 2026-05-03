@@ -133,41 +133,41 @@ function TopomapChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Layers',
+      label: '图层',
       fields: [
-        { type: 'toggle', key: 'eeg', label: 'EEG topomap layer', value: showEeg, onChange: setShowEeg },
-        { type: 'toggle', key: 'fnirs', label: 'fNIRS optodes layer', value: showFnirs, onChange: setShowFnirs },
-        { type: 'toggle', key: 'lbl', label: 'Channel labels', value: showLabels, onChange: setShowLabels },
+        { type: 'toggle', key: 'eeg', label: 'EEG 头皮拓扑层', value: showEeg, onChange: setShowEeg },
+        { type: 'toggle', key: 'fnirs', label: 'fNIRS 光极层', value: showFnirs, onChange: setShowFnirs },
+        { type: 'toggle', key: 'lbl', label: '通道标签', value: showLabels, onChange: setShowLabels },
       ],
     },
     {
-      label: 'EEG field',
+      label: 'EEG 场',
       fields: [
-        { type: 'number', key: 'op', label: 'opacity', min: 0, max: 1, step: 0.05, value: eegOpacity, onChange: setEegOpacity, slider: true, format: (v) => v.toFixed(2) },
-        { type: 'number', key: 'res', label: 'grid resolution', min: 12, max: 160, step: 2, value: resolution, onChange: setResolution, slider: true },
-        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+        { type: 'number', key: 'op', label: '不透明度', min: 0, max: 1, step: 0.05, value: eegOpacity, onChange: setEegOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'res', label: '网格分辨率', min: 12, max: 160, step: 2, value: resolution, onChange: setResolution, slider: true },
+        { type: 'number', key: 'seed', label: '随机种子', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
     {
-      label: 'Hardware',
+      label: '硬件',
       fields: [
-        { type: 'info', key: 'eN', label: 'EEG electrodes', value: String(EEG_10_20.length) },
-        { type: 'info', key: 'oN', label: 'fNIRS optodes', value: String(FNIRS_OPTODES.length) },
-        { type: 'info', key: 'pN', label: 'fNIRS S–D pairs', value: String(FNIRS_PAIRS.length) },
+        { type: 'info', key: 'eN', label: 'EEG 电极数', value: String(EEG_10_20.length) },
+        { type: 'info', key: 'oN', label: 'fNIRS 光极数', value: String(FNIRS_OPTODES.length) },
+        { type: 'info', key: 'pN', label: 'fNIRS 源–探测对数', value: String(FNIRS_PAIRS.length) },
       ],
     },
     {
-      label: 'Loaded data',
+      label: '已加载数据',
       description: loaded
-        ? `EDF: ${loaded.fileNames.join(', ')}`
-        : 'No EDF loaded — synthetic field is in use.',
+        ? `EDF：${loaded.fileNames.join(', ')}`
+        : '未加载 EDF — 使用合成场。',
       fields: loaded
         ? [
             {
               type: 'number',
               key: 'frame',
-              label: 'time (s)',
+              label: '时间（秒）',
               min: 0,
               max: Math.max(0, maxFrame - 1),
               step: 0.1,
@@ -179,18 +179,18 @@ function TopomapChart() {
             {
               type: 'info',
               key: 'matched',
-              label: 'matched 10-20',
+              label: '匹配的 10-20',
               value: `${matchedNames.length} / ${EEG_10_20.length}`,
             },
             {
               type: 'info',
               key: 'duration',
-              label: 'duration (s)',
+              label: '时长（秒）',
               value: maxFrame.toFixed(1),
             },
           ]
         : [
-            { type: 'info', key: 'src', label: 'source', value: 'synthetic' },
+            { type: 'info', key: 'src', label: '数据源', value: '合成' },
           ],
     },
   ];
@@ -235,9 +235,9 @@ function TopomapChart() {
           presets={[
             {
               id: 'eeg',
-              label: 'EEG only',
-              hint: 'modal',
-              description: 'Hide fNIRS — inspect alpha/beta scalp pattern.',
+              label: '仅 EEG',
+              hint: '模态',
+              description: '隐藏 fNIRS — 查看 alpha/beta 头皮模式。',
               apply: () => {
                 setShowEeg(true);
                 setShowFnirs(false);
@@ -247,9 +247,9 @@ function TopomapChart() {
             },
             {
               id: 'fnirs',
-              label: 'fNIRS only',
-              hint: 'modal',
-              description: 'Hide EEG — see HbO/HbR optical channels.',
+              label: '仅 fNIRS',
+              hint: '模态',
+              description: '隐藏 EEG — 查看 HbO/HbR 光学通道。',
               apply: () => {
                 setShowEeg(false);
                 setShowFnirs(true);
@@ -258,9 +258,9 @@ function TopomapChart() {
             },
             {
               id: 'fused',
-              label: 'Fused multimodal',
-              hint: 'figure',
-              description: 'Both modalities, semi-transparent overlay.',
+              label: '多模态融合',
+              hint: '出版',
+              description: '两种模态同时显示，半透明叠加。',
               apply: () => {
                 setShowEeg(true);
                 setShowFnirs(true);
@@ -270,9 +270,9 @@ function TopomapChart() {
             },
             {
               id: 'highres',
-              label: 'High-res grid',
-              hint: 'export',
-              description: 'Resolution 96 for poster-grade interpolation.',
+              label: '高分辨网格',
+              hint: '导出',
+              description: '分辨率 96，海报级插值。',
               apply: () => {
                 setResolution(96);
               },
@@ -285,13 +285,13 @@ function TopomapChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Layers">
-            <Toggle label="Show EEG topomap" checked={showEeg} onChange={setShowEeg} />
-            <Toggle label="Show fNIRS optodes" checked={showFnirs} onChange={setShowFnirs} />
+          <ControlGroup label="图层">
+            <Toggle label="显示 EEG 拓扑" checked={showEeg} onChange={setShowEeg} />
+            <Toggle label="显示 fNIRS 光极" checked={showFnirs} onChange={setShowFnirs} />
           </ControlGroup>
-          <ControlGroup label="EEG layer opacity">
+          <ControlGroup label="EEG 层不透明度">
             <NumberSlider
-              label="opacity"
+              label="不透明度"
               value={eegOpacity}
               min={0}
               max={1}
@@ -300,9 +300,9 @@ function TopomapChart() {
               format={(v) => v.toFixed(2)}
             />
           </ControlGroup>
-          <ControlGroup label="Interpolation grid">
+          <ControlGroup label="插值网格">
             <NumberSlider
-              label="resolution"
+              label="分辨率"
               value={resolution}
               min={20}
               max={80}
@@ -310,18 +310,16 @@ function TopomapChart() {
               onChange={setResolution}
             />
           </ControlGroup>
-          <ControlGroup label="Color map">
+          <ControlGroup label="配色">
             <ColormapSelect value={colormap} onChange={setColormap} />
           </ControlGroup>
         </>
       }
       notes={
         <p>
-          Azimuthal equidistant projection of the 10-20 system over the unit
-          head disc. The EEG layer is an inverse-distance interpolation over
-          a square grid clipped to the head circle. fNIRS source–detector
-          pairs are drawn as Banana-shape arcs to evoke the typical photon
-          path between neighbouring optodes.
+          在单位头皮圆盘上使用方位等距投影展示的 10-20 系统。EEG 层为头皮圆裁剪后
+          的方形网格上的反距离插值。fNIRS 源–探测对以香蕉形弧线绘制，呈现邻
+          近光极之间典型的光子路径。
         </p>
       }
       figure={
@@ -479,10 +477,10 @@ function TopomapChart() {
 
 registerChart({
   id: 'eeg-fnirs-topomap',
-  title: 'EEG–fNIRS Co-registration Topomap',
-  titleZh: '脑电-近红外共注册拓扑图',
+  title: '脑电-近红外共注册拓扑图',
+  titleEn: 'EEG–fNIRS Co-registration Topomap',
   category: 'physiology',
   summary:
-    'Azimuthal-equidistant 10-20 head map overlaid with fNIRS source/detector pairs and Banana-shape photon paths.',
+    '方位等距投影的 10-20 头皮图，并叠加 fNIRS 源/探测对与香蕉形光子路径。',
   component: TopomapChart,
 });

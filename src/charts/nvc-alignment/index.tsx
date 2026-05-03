@@ -124,35 +124,35 @@ function NVCChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Recording',
+      label: '记录',
       fields: [
-        { type: 'number', key: 'd', label: 'duration (s)', min: 30, max: 600, step: 5, value: duration, onChange: setDuration, slider: true },
-        { type: 'number', key: 'eFs', label: 'EEG fs (Hz)', min: 32, max: 1024, step: 8, value: eegFs, onChange: setEegFs, slider: true },
-        { type: 'number', key: 'hFs', label: 'fNIRS fs (Hz)', min: 1, max: 50, step: 1, value: hrfFs, onChange: setHrfFs, slider: true },
+        { type: 'number', key: 'd', label: '时长（s）', min: 30, max: 600, step: 5, value: duration, onChange: setDuration, slider: true },
+        { type: 'number', key: 'eFs', label: 'EEG 采样率（Hz）', min: 32, max: 1024, step: 8, value: eegFs, onChange: setEegFs, slider: true },
+        { type: 'number', key: 'hFs', label: 'fNIRS 采样率（Hz）', min: 1, max: 50, step: 1, value: hrfFs, onChange: setHrfFs, slider: true },
       ],
     },
     {
-      label: 'Synthetic seeds',
+      label: '合成种子',
       fields: [
-        { type: 'number', key: 'es', label: 'EEG seed', min: 0, max: 9999, step: 1, value: eegSeed, onChange: setEegSeed },
-        { type: 'number', key: 'hs', label: 'HbO seed', min: 0, max: 9999, step: 1, value: hboSeed, onChange: setHboSeed },
-        { type: 'number', key: 'cp', label: 'HbR coupling (−HbO)', min: 0, max: 1.5, step: 0.05, value: hbrCoupling, onChange: setHbrCoupling, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'es', label: 'EEG 种子', min: 0, max: 9999, step: 1, value: eegSeed, onChange: setEegSeed },
+        { type: 'number', key: 'hs', label: 'HbO 种子', min: 0, max: 9999, step: 1, value: hboSeed, onChange: setHboSeed },
+        { type: 'number', key: 'cp', label: 'HbR 耦合（−HbO）', min: 0, max: 1.5, step: 0.05, value: hbrCoupling, onChange: setHbrCoupling, slider: true, format: (v) => v.toFixed(2) },
       ],
     },
     {
-      label: 'Loaded data',
+      label: '已加载数据',
       fields: activeEeg
         ? [
             {
               type: 'info',
               key: 'src',
-              label: 'source',
+              label: '来源',
               value: `EDF · ${loaded?.fileNames[0] ?? '?'}`,
             },
             {
               type: 'select',
               key: 'ch',
-              label: 'EEG channel',
+              label: 'EEG 通道',
               value: activeEeg.label,
               options: eegChannels.map((c) => ({
                 value: c.label,
@@ -163,26 +163,26 @@ function NVCChart() {
             {
               type: 'info',
               key: 'fs',
-              label: 'native fs',
+              label: '原始采样率',
               value: `${activeEeg.fs.toFixed(0)} Hz`,
             },
             {
               type: 'info',
               key: 'len',
-              label: 'duration',
+              label: '时长',
               value: `${(activeEeg.samples.length / activeEeg.fs).toFixed(1)} s`,
             },
             {
               type: 'toggle',
               key: 'aenv',
-              label: 'α-band envelope (8–13 Hz)',
+              label: 'α 波包络（8–13 Hz）',
               value: showAlphaEnv,
               onChange: setShowAlphaEnv,
             },
             {
               type: 'number',
               key: 'aw',
-              label: 'α-RMS window (s)',
+              label: 'α-RMS 窗口（s）',
               min: 0.25,
               max: 4,
               step: 0.25,
@@ -196,15 +196,15 @@ function NVCChart() {
             {
               type: 'info',
               key: 'src',
-              label: 'source',
-              value: 'synthetic (no EDF loaded)',
+              label: '来源',
+              value: '合成（未加载 EDF）',
             },
           ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'b', label: 'Seizure bands', value: showBands, onChange: setShowBands },
+        { type: 'toggle', key: 'b', label: '发作条带', value: showBands, onChange: setShowBands },
       ],
     },
   ];
@@ -314,9 +314,9 @@ function NVCChart() {
           presets={[
             {
               id: 'short',
-              label: 'Short window',
-              hint: 'epoch',
-              description: '60-s window, dense bands — single epoch view.',
+              label: '短窗口',
+              hint: '单轮',
+              description: '60 秒窗口、密集条带 — 单轮查看。',
               apply: () => {
                 setDuration(60);
                 setShowBands(true);
@@ -324,9 +324,9 @@ function NVCChart() {
             },
             {
               id: 'long',
-              label: 'Long recording',
-              hint: 'session',
-              description: '300 s — multiple HRF cycles visible.',
+              label: '长记录',
+              hint: '会话',
+              description: '300 秒 — 可见多个 HRF 周期。',
               apply: () => {
                 setDuration(300);
                 setShowBands(true);
@@ -334,18 +334,18 @@ function NVCChart() {
             },
             {
               id: 'tightcoupling',
-              label: 'Tight HbR coupling',
-              hint: 'physiology',
-              description: 'Strong negative HbO/HbR correlation.',
+              label: '紧密 HbR 耦合',
+              hint: '生理',
+              description: 'HbO/HbR 强负相关。',
               apply: () => {
                 setHbrCoupling(0.9);
               },
             },
             {
               id: 'looser',
-              label: 'Loose coupling',
-              hint: 'noise',
-              description: 'Lower coupling — noisier hemodynamics.',
+              label: '松散耦合',
+              hint: '噪声',
+              description: '较弱耦合 — 血动力学噪声较大。',
               apply: () => {
                 setHbrCoupling(0.3);
               },
@@ -358,9 +358,9 @@ function NVCChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Recording">
+          <ControlGroup label="记录">
             <NumberSlider
-              label="duration (s)"
+              label="时长（s）"
               value={duration}
               min={60}
               max={240}
@@ -368,7 +368,7 @@ function NVCChart() {
               onChange={setDuration}
             />
             <NumberSlider
-              label="EEG fs (Hz)"
+              label="EEG 采样率（Hz）"
               value={eegFs}
               min={32}
               max={250}
@@ -376,7 +376,7 @@ function NVCChart() {
               onChange={setEegFs}
             />
             <NumberSlider
-              label="fNIRS fs (Hz)"
+              label="fNIRS 采样率（Hz）"
               value={hrfFs}
               min={2}
               max={20}
@@ -384,9 +384,9 @@ function NVCChart() {
               onChange={setHrfFs}
             />
           </ControlGroup>
-          <ControlGroup label="Annotations">
+          <ControlGroup label="标注">
             <Toggle
-              label="Show seizure bands"
+              label="显示发作条带"
               checked={showBands}
               onChange={setShowBands}
             />
@@ -396,21 +396,15 @@ function NVCChart() {
       notes={
         <div className="space-y-2">
           <p>
-            Dual-axis time series aligned on a shared timestamp. EEG
-            (left) retains raw spikes while HbO/HbR (right) are
-            smoothed via a monotone-cubic spline so the slow
-            neurovascular response stays visually separable.
-            Background bands flag inter-ictal, pre-ictal, and ictal
-            periods.
+            共享时间轴的双轴时序。EEG（左轴）保留原始尖峰，HbO/HbR（右轴）经单调三次
+            样条平滑，以便与缓慢的神经血管响应在视觉上可区分。背景条带标记发作间期、
+            发作前与发作期。
           </p>
           <p>
-            Drop an EDF (with optional BIDS sidecars) into the Data
-            ingestion panel to drive the EEG trace from a real
-            recording. The selected channel is band-passed at 8–13
-            Hz and its RMS envelope is overlaid (dashed green,
-            normalised onto the right axis) as a quick proxy for
-            α-power vs the hemodynamic response. HbO/HbR remain
-            synthetic until SNIRF ingestion lands.
+            将 EDF（可选 BIDS sidecar）拖到“数据接入”面板，即可从真实记录驱动 EEG
+            轨迹。选中通道会被 8–13 Hz 带通滤波，其 RMS 包络（绿色虚线，已归一化到
+            右轴）作为 α 波能量与血动力学响应对比的快速代理。SNIRF 收入上线前，HbO/HbR
+            仍为合成数据。
           </p>
         </div>
       }
@@ -524,10 +518,10 @@ function NVCChart() {
 
 registerChart({
   id: 'nvc-alignment',
-  title: 'Neurovascular Coupling Alignment',
-  titleZh: '神经血管耦合对齐时序图',
+  title: '神经血管耦合对齐时序图',
+  titleEn: 'Neurovascular Coupling Alignment',
   category: 'physiology',
   summary:
-    'Dual-axis EEG vs HbO/HbR time series aligned on a shared timestamp with seizure-stage shading.',
+    '共享时间轴的 EEG 与 HbO/HbR 双轴时序，叠加发作阶段阴影。',
   component: NVCChart,
 });

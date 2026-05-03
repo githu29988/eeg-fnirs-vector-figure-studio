@@ -11,15 +11,15 @@ export function AppShell() {
             EEG · fNIRS
           </p>
           <h1 className="mt-1 font-serif text-lg leading-tight">
-            Vector Figure Studio
+            矢量图表工作室
           </h1>
           <p className="mt-1 text-xs text-ink-300">
-            Publication-grade figures for multimodal neuroscience.
+            面向多模态神经科学的出版级矢量图。
           </p>
         </header>
 
         <nav className="flex-1 overflow-y-auto px-2 py-3 text-sm">
-          <NavItem to="/" exact label="Overview" />
+          <NavItem to="/" exact label="概览" />
           {CATEGORIES.filter((c) => c.id !== 'overview').map((cat) => {
             const items = charts.filter((c) => c.category === cat.id);
             if (items.length === 0) return null;
@@ -34,7 +34,7 @@ export function AppShell() {
                       <NavItem
                         to={`/chart/${item.id}`}
                         label={item.title}
-                        sublabel={item.titleZh}
+                        sublabel={item.titleEn}
                         wip={item.status === 'wip'}
                       />
                     </li>

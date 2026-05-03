@@ -38,24 +38,24 @@ function CorticalChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'View angle',
+      label: '观察角度',
       fields: [
-        { type: 'number', key: 'yaw', label: 'yaw', min: -Math.PI, max: Math.PI, step: 0.02, value: yaw, onChange: setYaw, slider: true, format: (v) => `${((v * 180) / Math.PI).toFixed(0)}°` },
-        { type: 'number', key: 'pitch', label: 'pitch', min: -1.2, max: 1.2, step: 0.01, value: pitch, onChange: setPitch, slider: true, format: (v) => `${((v * 180) / Math.PI).toFixed(0)}°` },
+        { type: 'number', key: 'yaw', label: '偏航角', min: -Math.PI, max: Math.PI, step: 0.02, value: yaw, onChange: setYaw, slider: true, format: (v) => `${((v * 180) / Math.PI).toFixed(0)}°` },
+        { type: 'number', key: 'pitch', label: '仰俯角', min: -1.2, max: 1.2, step: 0.01, value: pitch, onChange: setPitch, slider: true, format: (v) => `${((v * 180) / Math.PI).toFixed(0)}°` },
       ],
     },
     {
-      label: 'Mesh',
-      description: 'Tessellation density of the procedural cortical surface.',
+      label: '网格',
+      description: '程序生成的皮层表面的网格细分密度。',
       fields: [
-        { type: 'number', key: 'mlat', label: 'longitudes', min: 16, max: 96, step: 2, value: meshLat, onChange: setMeshLat, slider: true },
-        { type: 'number', key: 'mlong', label: 'latitudes', min: 12, max: 60, step: 2, value: meshLong, onChange: setMeshLong, slider: true },
+        { type: 'number', key: 'mlat', label: '经度线数', min: 16, max: 96, step: 2, value: meshLat, onChange: setMeshLat, slider: true },
+        { type: 'number', key: 'mlong', label: '纬度线数', min: 12, max: 60, step: 2, value: meshLong, onChange: setMeshLong, slider: true },
       ],
     },
     {
-      label: 'Render',
+      label: '渲染',
       fields: [
-        { type: 'number', key: 'op', label: 'opacity', min: 0.1, max: 1, step: 0.01, value: opacity, onChange: setOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'op', label: '不透明度', min: 0.1, max: 1, step: 0.01, value: opacity, onChange: setOpacity, slider: true, format: (v) => v.toFixed(2) },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
@@ -131,9 +131,9 @@ function CorticalChart() {
           presets={[
             {
               id: 'left',
-              label: 'Left lateral view',
-              hint: 'sagittal',
-              description: 'Yaw ≈ −π/2 — classic atlas orientation.',
+              label: '左侧位视图',
+              hint: '矢状',
+              description: '偏航角 ≈ −π/2，经典脑图谱朝向。',
               apply: () => {
                 setYaw(-Math.PI / 2);
                 setPitch(0.05);
@@ -141,9 +141,9 @@ function CorticalChart() {
             },
             {
               id: 'top',
-              label: 'Vertex (top-down)',
-              hint: 'axial',
-              description: 'Looking straight down at the cortex.',
+              label: '顶面俯视',
+              hint: '轴位',
+              description: '从上方直视皮层。',
               apply: () => {
                 setYaw(0);
                 setPitch(Math.PI / 2 - 0.05);
@@ -151,9 +151,9 @@ function CorticalChart() {
             },
             {
               id: 'oblique',
-              label: 'Oblique 3-quarter',
-              hint: 'figure',
-              description: 'Yaw 0.6, pitch 0.25 — the publication default.',
+              label: '斜侧三分之四角度',
+              hint: '出版',
+              description: '偏航 0.6、仰俯 0.25 — 出版默认视角。',
               apply: () => {
                 setYaw(0.6);
                 setPitch(0.25);
@@ -162,9 +162,9 @@ function CorticalChart() {
             },
             {
               id: 'dense',
-              label: 'Dense mesh',
-              hint: 'export',
-              description: 'Higher facet count for crisp PDF zoom.',
+              label: '高密网格',
+              hint: '导出',
+              description: '高面数以保证 PDF 放大后仍清晰。',
               apply: () => {
                 setMeshLat(64);
                 setMeshLong(40);
@@ -178,9 +178,9 @@ function CorticalChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="View angle">
+          <ControlGroup label="观察角度">
             <NumberSlider
-              label="yaw"
+              label="偏航角"
               value={yaw}
               min={-Math.PI}
               max={Math.PI}
@@ -189,7 +189,7 @@ function CorticalChart() {
               format={(v) => `${((v * 180) / Math.PI).toFixed(0)}°`}
             />
             <NumberSlider
-              label="pitch"
+              label="仰俯角"
               value={pitch}
               min={-1}
               max={1}
@@ -198,9 +198,9 @@ function CorticalChart() {
               format={(v) => `${((v * 180) / Math.PI).toFixed(0)}°`}
             />
           </ControlGroup>
-          <ControlGroup label="Render">
+          <ControlGroup label="渲染">
             <NumberSlider
-              label="opacity"
+              label="不透明度"
               value={opacity}
               min={0.4}
               max={1}
@@ -214,11 +214,9 @@ function CorticalChart() {
       }
       notes={
         <p>
-          Procedural cortical surface rendered as depth-sorted SVG
-          triangles (painter's algorithm). Vertex activations come from
-          three Gaussian hotspots; the surface is shaded with a Lambertian
-          model so gyri-like ripples remain readable. Output is fully
-          vector — no canvas / WebGL — so SVG export is lossless.
+          程序生成的皮层表面以深度排序的 SVG 三角形渲染（画家算法）。顶点激
+          活来自三个高斯热点；表面使用朗伯朗渲染模型著色，以保证回軯起伏清
+          晰可读。输出为纯矢量（不使用 canvas / WebGL），因此 SVG 导出为无损。
         </p>
       }
       figure={
@@ -287,10 +285,10 @@ function CorticalChart() {
 
 registerChart({
   id: 'cortical-3d',
-  title: '3.5D Cortical Projection',
-  titleZh: '3.5D 皮层投影热力图',
+  title: '3.5D 皮层投影热力图',
+  titleEn: '3.5D Cortical Projection',
   category: 'physiology',
   summary:
-    'Procedural brain mesh rendered as depth-sorted SVG triangles with per-vertex activation colouring.',
+    '程序生成的脑部网格以深度排序的 SVG 三角形渲染，顶点激活量著色。',
   component: CorticalChart,
 });

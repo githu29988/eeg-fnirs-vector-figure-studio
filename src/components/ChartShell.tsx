@@ -57,15 +57,15 @@ export function ChartShell({
               <div>
                 <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
                   {activeMode === 'expert'
-                    ? 'Expert parameter tree'
-                    : 'Simple inspector'}
+                    ? '专家参数树'
+                    : '简洁控制面板'}
                 </p>
                 <p className="text-[11px] text-ink-300">
                   {activeMode === 'expert'
-                    ? 'Full parameter surface; collapse groups for focus.'
+                    ? '完整参数面,可折叠各组以聚焦重点。'
                     : hasExpert
-                    ? 'Core controls. Switch to expert for the full tree.'
-                    : 'Core controls.'}
+                    ? '核心控制。切换到专家模式查看全部参数。'
+                    : '核心控制。'}
                 </p>
               </div>
               {hasExpert ? (
@@ -85,10 +85,10 @@ export function ChartShell({
           <section className="rounded-lg border border-ink-700 bg-ink-900 p-4">
             <header className="mb-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-                Inspiration
+                灵感变体
               </p>
               <p className="text-[11px] text-ink-300">
-                Click a variant to apply it to the current figure.
+                点击变体即可应用到当前图。
               </p>
             </header>
             <div>{inspiration}</div>
@@ -98,7 +98,7 @@ export function ChartShell({
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-            Figure preview
+            图表预览
           </p>
           <ExportToolbar getSvg={getSvg} baseFilename={filename} />
         </div>
@@ -125,7 +125,7 @@ function ModeToggle({
   return (
     <div
       role="tablist"
-      aria-label="Inspector mode"
+      aria-label="控制面板模式"
       className="flex shrink-0 rounded border border-ink-600 bg-ink-800 p-0.5 text-[10px]"
     >
       {(['simple', 'expert'] as const).map((m) => (
@@ -136,13 +136,13 @@ function ModeToggle({
           aria-selected={mode === m}
           onClick={() => onChange(m)}
           className={
-            'rounded px-2 py-0.5 font-medium uppercase tracking-wider transition-colors ' +
+            'rounded px-2 py-0.5 font-medium tracking-wider transition-colors ' +
             (mode === m
               ? 'bg-accent text-ink-900'
               : 'text-ink-300 hover:text-ink-100')
           }
         >
-          {m}
+          {m === 'simple' ? '简洁' : '专家'}
         </button>
       ))}
     </div>

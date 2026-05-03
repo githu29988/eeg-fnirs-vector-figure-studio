@@ -70,23 +70,23 @@ function RocPrChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Sample',
+      label: '样本',
       fields: [
-        { type: 'number', key: 'n', label: 'n per model', min: 40, max: 5000, step: 20, value: n, onChange: setN, slider: true },
-        { type: 'number', key: 'pi', label: 'positive prevalence', min: 0.05, max: 0.95, step: 0.01, value: prevalence, onChange: setPrevalence, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'n', label: '每模型样本量 n', min: 40, max: 5000, step: 20, value: n, onChange: setN, slider: true },
+        { type: 'number', key: 'pi', label: '阳性流行率', min: 0.05, max: 0.95, step: 0.01, value: prevalence, onChange: setPrevalence, slider: true, format: (v) => v.toFixed(2) },
       ],
     },
     {
-      label: 'Bootstrap',
+      label: '自举法',
       fields: [
-        { type: 'number', key: 'bi', label: 'iterations', min: 20, max: 1000, step: 10, value: bootstrapIter, onChange: setBootstrapIter, slider: true },
+        { type: 'number', key: 'bi', label: '迭代次数', min: 20, max: 1000, step: 10, value: bootstrapIter, onChange: setBootstrapIter, slider: true },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'ci', label: '95% CI in legend', value: showCi, onChange: setShowCi },
-        { type: 'info', key: 'm', label: 'models', value: String(DEFAULT_MODELS.length) },
+        { type: 'toggle', key: 'ci', label: '图例内 95% CI', value: showCi, onChange: setShowCi },
+        { type: 'info', key: 'm', label: '模型数', value: String(DEFAULT_MODELS.length) },
       ],
     },
   ];
@@ -123,9 +123,9 @@ function RocPrChart() {
   const inspirations: InspirationPreset[] = [
     {
       id: 'review',
-      label: 'Conference baseline',
-      hint: 'review',
-      description: 'n=420, 120-iter bootstrap, default models.',
+      label: '会议基线',
+      hint: '复审',
+      description: 'n=420、120 轮自举法、默认模型。',
       apply: () => {
         setN(420);
         setBootstrapIter(120);
@@ -135,9 +135,9 @@ function RocPrChart() {
     },
     {
       id: 'rare',
-      label: 'Rare-disease screening',
-      hint: 'clinical',
-      description: 'Low prevalence flips PR — AP collapses, ROC unaffected.',
+      label: '罕见病筛查',
+      hint: '临床',
+      description: '低流行率下 PR 变差 — AP 下降，ROC 不变。',
       apply: () => {
         setN(900);
         setBootstrapIter(200);
@@ -147,9 +147,9 @@ function RocPrChart() {
     },
     {
       id: 'tight',
-      label: 'Tight CI',
-      hint: 'publication',
-      description: 'Big bootstrap (B=600) for camera-ready figures.',
+      label: '紧缩 CI',
+      hint: '出版',
+      description: '大量自举（B=600）适用于最终出版图。',
       apply: () => {
         setN(600);
         setBootstrapIter(600);
@@ -159,9 +159,9 @@ function RocPrChart() {
     },
     {
       id: 'noci',
-      label: 'Curves only',
-      hint: 'minimal',
-      description: 'Hide CIs to declutter for poster panels.',
+      label: '仅曲线',
+      hint: '极简',
+      description: '隐藏 CI，便于海报面板减负。',
       apply: () => {
         setShowCi(false);
       },
@@ -176,9 +176,9 @@ function RocPrChart() {
       inspiration={<InspirationPanel presets={inspirations} />}
       inspector={
         <>
-          <ControlGroup label="Sample size n">
+          <ControlGroup label="样本量 n">
             <NumberSlider
-              label="n per model"
+              label="每模型样本量 n"
               value={n}
               min={80}
               max={2000}
@@ -186,9 +186,9 @@ function RocPrChart() {
               onChange={setN}
             />
           </ControlGroup>
-          <ControlGroup label="Display">
+          <ControlGroup label="显示">
             <Toggle
-              label="Bootstrap 95% CI in legend"
+              label="图例内自举法 95% CI"
               checked={showCi}
               onChange={setShowCi}
             />
@@ -197,10 +197,9 @@ function RocPrChart() {
       }
       notes={
         <p>
-          Synthetic binary classifiers parameterised by a class-separation{' '}
-          parameter. Each model uses a fixed seed so the figure is fully
-          reproducible. AUC and AP are computed with the trapezoidal rule;
-          confidence intervals come from a {bootstrapIter}-iteration bootstrap.
+          以类间可分性参数控制的合成二分类器。每个模型使用固定种子，保证图示
+          可完全复现。AUC 与 AP 采用梯形积分计算；置信区间来自 {bootstrapIter} 轮
+          自举法。
         </p>
       }
       figure={
@@ -392,10 +391,10 @@ function Legend({
 
 registerChart({
   id: 'roc-pr-curves',
-  title: 'ROC & Precision–Recall Curves',
-  titleZh: '出版级 ROC / PR 曲线',
+  title: '出版级 ROC / PR 曲线',
+  titleEn: 'ROC & Precision–Recall Curves',
   category: 'evaluation',
   summary:
-    'Side-by-side ROC and PR curves for multiple models with AUC, AP, and bootstrap 95% CI.',
+    '多模型并排的 ROC 与 PR 曲线，包含 AUC、AP 与自举法 95% CI。',
   component: RocPrChart,
 });
