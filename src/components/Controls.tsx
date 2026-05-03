@@ -138,7 +138,7 @@ export function ColormapSelect({
 }) {
   return (
     <Select
-      label="Color map"
+      label="配色"
       value={value}
       options={COLORMAP_OPTIONS}
       onChange={onChange}

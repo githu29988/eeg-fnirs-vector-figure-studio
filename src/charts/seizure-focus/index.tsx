@@ -77,23 +77,23 @@ function SeizureFocusChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Grid',
+      label: '网格',
       fields: [
-        { type: 'number', key: 'grid', label: 'resolution', min: 16, max: 240, step: 2, value: gridSize, onChange: setGridSize, slider: true },
-        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+        { type: 'number', key: 'grid', label: '分辨率', min: 16, max: 240, step: 2, value: gridSize, onChange: setGridSize, slider: true },
+        { type: 'number', key: 'seed', label: '随机种子', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
       ],
     },
     {
-      label: 'Contours',
+      label: '等值线',
       fields: [
-        { type: 'number', key: 't', label: 'threshold count', min: 2, max: 32, step: 1, value: thresholds, onChange: setThresholds, slider: true },
+        { type: 'number', key: 't', label: '阈值数', min: 2, max: 32, step: 1, value: thresholds, onChange: setThresholds, slider: true },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'lm', label: 'Anatomical landmarks', value: showLandmarks, onChange: setShowLandmarks },
-        { type: 'number', key: 'lo', label: 'landmark opacity', min: 0, max: 1, step: 0.05, value: labelOpacity, onChange: setLabelOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'toggle', key: 'lm', label: '解剖标签', value: showLandmarks, onChange: setShowLandmarks },
+        { type: 'number', key: 'lo', label: '标签不透明度', min: 0, max: 1, step: 0.05, value: labelOpacity, onChange: setLabelOpacity, slider: true, format: (v) => v.toFixed(2) },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
@@ -124,9 +124,9 @@ function SeizureFocusChart() {
           presets={[
             {
               id: 'crisp',
-              label: 'Crisp focus',
-              hint: 'figure',
-              description: 'High grid + many thresholds — sharp contour rings.',
+              label: '锐利焦点',
+              hint: '插图',
+              description: '高分辨率加多阈值 — 轮廓锐利。',
               apply: () => {
                 setGridSize(96);
                 setThresholds(12);
@@ -135,9 +135,9 @@ function SeizureFocusChart() {
             },
             {
               id: 'fast',
-              label: 'Quick preview',
-              hint: 'preview',
-              description: 'Coarse grid for fast rerender during exploration.',
+              label: '快速预览',
+              hint: '预览',
+              description: '粗网格，探索阶段重画较快。',
               apply: () => {
                 setGridSize(40);
                 setThresholds(6);
@@ -145,18 +145,18 @@ function SeizureFocusChart() {
             },
             {
               id: 'reseed',
-              label: 'Resample focus',
-              hint: 'shuffle',
-              description: 'Move the synthetic focus to a new location.',
+              label: '重采样焦点',
+              hint: '重抽',
+              description: '将合成焦点中心移到新位置。',
               apply: () => {
                 setSeed((s) => s + 1);
               },
             },
             {
               id: 'magma',
-              label: 'Magma palette',
-              hint: 'palette',
-              description: 'Warm magma instead of inferno for thermal contrast.',
+              label: 'Magma 色带',
+              hint: '色彩',
+              description: '以 magma 代替 inferno 获得热成像对比。',
               apply: () => {
                 setColormap('magma');
               },
@@ -169,9 +169,9 @@ function SeizureFocusChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Grid">
+          <ControlGroup label="网格">
             <NumberSlider
-              label="resolution"
+              label="分辨率"
               value={gridSize}
               min={30}
               max={120}
@@ -179,9 +179,9 @@ function SeizureFocusChart() {
               onChange={setGridSize}
             />
           </ControlGroup>
-          <ControlGroup label="Contours">
+          <ControlGroup label="等值线">
             <NumberSlider
-              label="threshold count"
+              label="阈值数"
               value={thresholds}
               min={3}
               max={16}
@@ -189,19 +189,17 @@ function SeizureFocusChart() {
               onChange={setThresholds}
             />
           </ControlGroup>
-          <ControlGroup label="Display">
-            <Toggle label="Anatomical landmarks" checked={showLandmarks} onChange={setShowLandmarks} />
+          <ControlGroup label="显示">
+            <Toggle label="解剖标签" checked={showLandmarks} onChange={setShowLandmarks} />
             <ColormapSelect value={colormap} onChange={setColormap} />
           </ControlGroup>
         </>
       }
       notes={
         <p>
-          Importance scores from a graph attention classifier are
-          interpolated to a grid and contoured. The hottest blob
-          corresponds to the seizure focus; secondary blobs hint at
-          propagation. Anatomical labels are decorative; swap them for
-          your own atlas as needed.
+          将图注意力分类器输出的重要性得分插值到网格并绘制等值线。最热的区域
+          对应发作焦点，次要区域提示传播路径。解剖标签仅侜装饰，可按需替换为自己
+          的脑图谱。
         </p>
       }
       figure={
@@ -312,10 +310,10 @@ function SeizureFocusChart() {
 
 registerChart({
   id: 'seizure-focus',
-  title: 'Seizure Focus Localisation',
-  titleZh: '癫痫病灶定位矢量图',
+  title: '癫痫病灶定位矢量图',
+  titleEn: 'Seizure Focus Localisation',
   category: 'clinical',
   summary:
-    'Contour map of GAT importance scores over the head disc with anatomical landmark overlays.',
+    '头部圆盘上 GAT 重要性得分的等值线图，叠加解剖标签。',
   component: SeizureFocusChart,
 });

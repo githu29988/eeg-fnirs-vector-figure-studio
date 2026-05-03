@@ -67,24 +67,24 @@ function ConfusionMatrixChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Sample',
+      label: '样本',
       fields: [
-        { type: 'number', key: 'n', label: 'n samples', min: 40, max: 20000, step: 10, value: n, onChange: setN, slider: true },
-        { type: 'number', key: 'seed', label: 'random seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+        { type: 'number', key: 'n', label: '样本量 n', min: 40, max: 20000, step: 10, value: n, onChange: setN, slider: true },
+        { type: 'number', key: 'seed', label: '随机种子', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
       ],
     },
     {
-      label: 'Classifier',
+      label: '分类器',
       fields: [
-        { type: 'number', key: 'sep', label: 'μ separation', min: 0, max: 6, step: 0.01, value: separation, onChange: setSeparation, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'sep', label: 'μ 分隔度', min: 0, max: 6, step: 0.01, value: separation, onChange: setSeparation, slider: true, format: (v) => v.toFixed(2) },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'norm', label: 'Row-normalise (recall view)', value: normalize, onChange: setNormalize },
+        { type: 'toggle', key: 'norm', label: '按行归一化（召回率视图）', value: normalize, onChange: setNormalize },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
-        { type: 'info', key: 'classes', label: 'Classes (k)', value: String(labels.length) },
+        { type: 'info', key: 'classes', label: '类别数 k', value: String(labels.length) },
       ],
     },
   ];
@@ -110,9 +110,9 @@ function ConfusionMatrixChart() {
   const inspirations: InspirationPreset[] = [
     {
       id: 'strong',
-      label: 'Strong classifier',
-      hint: 'baseline',
-      description: 'High class separation, large sample, viridis ramp.',
+      label: '强分类器',
+      hint: '基线',
+      description: '高类别分隔、大样本、viridis 色带。',
       apply: () => {
         setN(2000);
         setSeparation(2.6);
@@ -122,9 +122,9 @@ function ConfusionMatrixChart() {
     },
     {
       id: 'borderline',
-      label: 'Borderline classifier',
-      hint: 'review',
-      description: 'Confusable classes — recall drops on the diagonal.',
+      label: '临界分类器',
+      hint: '复审',
+      description: '类别易混淆 — 对角线召回率下降。',
       apply: () => {
         setN(1200);
         setSeparation(0.6);
@@ -134,9 +134,9 @@ function ConfusionMatrixChart() {
     },
     {
       id: 'tiny',
-      label: 'Tiny pilot sample',
-      hint: 'caveat',
-      description: 'n=160 with raw counts to expose sample-size noise.',
+      label: '小样本试点',
+      hint: '警示',
+      description: 'n=160 且使用原始计数，暴露样本量噪声。',
       apply: () => {
         setN(160);
         setSeparation(1.6);
@@ -146,9 +146,9 @@ function ConfusionMatrixChart() {
     },
     {
       id: 'magma',
-      label: 'Magma palette',
-      hint: 'palette',
-      description: 'Same model, swap to magma for a thermal-style print.',
+      label: 'Magma 色带',
+      hint: '色彩',
+      description: '同一模型切换为 magma，呈现热力图风格。',
       apply: () => {
         setColormap('magma');
       },
@@ -163,7 +163,7 @@ function ConfusionMatrixChart() {
       inspiration={<InspirationPanel presets={inspirations} />}
       inspector={
         <>
-          <ControlGroup label="Sample size">
+          <ControlGroup label="样本量">
             <NumberSlider
               label="n"
               value={n}
@@ -173,9 +173,9 @@ function ConfusionMatrixChart() {
               onChange={setN}
             />
           </ControlGroup>
-          <ControlGroup label="Classifier strength">
+          <ControlGroup label="分类器强度">
             <NumberSlider
-              label="μ separation"
+              label="μ 分隔度"
               value={separation}
               min={0}
               max={4}
@@ -184,9 +184,9 @@ function ConfusionMatrixChart() {
               format={(v) => v.toFixed(2)}
             />
           </ControlGroup>
-          <ControlGroup label="Display">
+          <ControlGroup label="显示">
             <Toggle
-              label="Row-normalise (recall view)"
+              label="按行归一化（召回率视图）"
               checked={normalize}
               onChange={setNormalize}
             />
@@ -196,10 +196,9 @@ function ConfusionMatrixChart() {
       }
       notes={
         <p>
-          Multi-class confusion matrix for a synthetic 4-state seizure stage
-          classifier. Each cell encodes <code>row-normalised recall</code> or
-          raw counts depending on the toggle. Cell values are rendered as
-          plain text for accessibility (screen readers and B/W print).
+          面向合成 4 状态发作期分类器的多类混淆矩阵。每个单元格根据开关编码
+          <code>按行归一化的召回率</code>或原始计数。单元格数值以纯文本形式渲染，
+          以保证可访问性（读屏器与黑白打印）。
         </p>
       }
       figure={
@@ -360,10 +359,9 @@ function ColorBar({
 
 registerChart({
   id: 'confusion-matrix',
-  title: 'Confusion Matrix',
-  titleZh: '混淆矩阵',
+  title: '混淆矩阵',
+  titleEn: 'Confusion Matrix',
   category: 'evaluation',
-  summary:
-    'Multi-class confusion matrix with row-normalised recall view, perceptually uniform colour ramp, and accessible cell labels.',
+  summary: '多类发作期分类器的混淆矩阵，支持按行归一化的召回率视图、感知均匀色带与可读单元格标签。',
   component: ConfusionMatrixChart,
 });

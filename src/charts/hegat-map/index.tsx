@@ -86,31 +86,31 @@ function HeGATChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Nodes',
+      label: '节点',
       fields: [
-        { type: 'number', key: 'e', label: 'EEG count', min: 2, max: 64, step: 1, value: eegN, onChange: setEegN, slider: true },
-        { type: 'number', key: 'f', label: 'fNIRS count', min: 2, max: 64, step: 1, value: fnirsN, onChange: setFnirsN, slider: true },
+        { type: 'number', key: 'e', label: 'EEG 节点数', min: 2, max: 64, step: 1, value: eegN, onChange: setEegN, slider: true },
+        { type: 'number', key: 'f', label: 'fNIRS 节点数', min: 2, max: 64, step: 1, value: fnirsN, onChange: setFnirsN, slider: true },
       ],
     },
     {
-      label: 'Edges',
+      label: '边',
       fields: [
-        { type: 'number', key: 'd', label: 'density', min: 0.05, max: 0.9, step: 0.01, value: density, onChange: setDensity, slider: true, format: (v) => v.toFixed(2) },
-        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+        { type: 'number', key: 'd', label: '密度', min: 0.05, max: 0.9, step: 0.01, value: density, onChange: setDensity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'seed', label: '随机种子', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
       ],
     },
     {
-      label: 'Force layout',
+      label: '力导向布局',
       fields: [
-        { type: 'number', key: 'it', label: 'simulation ticks', min: 50, max: 1500, step: 10, value: iterations, onChange: setIterations, slider: true },
+        { type: 'number', key: 'it', label: '仿真迭代次数', min: 50, max: 1500, step: 10, value: iterations, onChange: setIterations, slider: true },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'lbl', label: 'Node labels', value: showLabels, onChange: setShowLabels },
+        { type: 'toggle', key: 'lbl', label: '节点标签', value: showLabels, onChange: setShowLabels },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
-        { type: 'info', key: 'l', label: 'links rendered', value: String(links.length) },
+        { type: 'info', key: 'l', label: '渲染边数', value: String(links.length) },
       ],
     },
   ];
@@ -154,9 +154,9 @@ function HeGATChart() {
           presets={[
             {
               id: 'sparse',
-              label: 'Sparse network',
-              hint: 'minimal',
-              description: 'Low density — surfaces high-attention edges only.',
+              label: '稀疏网络',
+              hint: '极简',
+              description: '低密度 — 仅突出高注意力边。',
               apply: () => {
                 setEegN(8);
                 setFnirsN(8);
@@ -166,9 +166,9 @@ function HeGATChart() {
             },
             {
               id: 'dense',
-              label: 'Dense network',
-              hint: 'rich',
-              description: 'Many edges — stress-test the layout solver.',
+              label: '稠密网络',
+              hint: '丰富',
+              description: '多边 — 压测布局求解器。',
               apply: () => {
                 setEegN(14);
                 setFnirsN(14);
@@ -178,9 +178,9 @@ function HeGATChart() {
             },
             {
               id: 'hub',
-              label: 'Hub-spoke',
-              hint: 'topology',
-              description: 'Mid-density with extra solver iterations.',
+              label: '中枢-辐状',
+              hint: '拓扑',
+              description: '中等密度加上额外求解迭代。',
               apply: () => {
                 setEegN(10);
                 setFnirsN(10);
@@ -190,9 +190,9 @@ function HeGATChart() {
             },
             {
               id: 'magma',
-              label: 'Magma palette',
-              hint: 'palette',
-              description: 'Warm tone palette for projector-friendly contrast.',
+              label: 'Magma 色带',
+              hint: '色彩',
+              description: '暖色调色带，投影仪友好。',
               apply: () => {
                 setColormap('magma');
               },
@@ -205,9 +205,9 @@ function HeGATChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Nodes">
+          <ControlGroup label="节点">
             <NumberSlider
-              label="EEG nodes"
+              label="EEG 节点数"
               value={eegN}
               min={4}
               max={24}
@@ -215,7 +215,7 @@ function HeGATChart() {
               onChange={setEegN}
             />
             <NumberSlider
-              label="fNIRS nodes"
+              label="fNIRS 节点数"
               value={fnirsN}
               min={4}
               max={24}
@@ -223,9 +223,9 @@ function HeGATChart() {
               onChange={setFnirsN}
             />
           </ControlGroup>
-          <ControlGroup label="Edges">
+          <ControlGroup label="边">
             <NumberSlider
-              label="density"
+              label="密度"
               value={density}
               min={0.05}
               max={0.6}
@@ -234,19 +234,18 @@ function HeGATChart() {
               format={(v) => v.toFixed(2)}
             />
           </ControlGroup>
-          <ControlGroup label="Display">
-            <Toggle label="Show node labels" checked={showLabels} onChange={setShowLabels} />
+          <ControlGroup label="显示">
+            <Toggle label="显示节点标签" checked={showLabels} onChange={setShowLabels} />
             <ColormapSelect value={colormap} onChange={setColormap} />
           </ControlGroup>
         </>
       }
       notes={
         <p>
-          Heterogeneous graph attention network. EEG electrodes (circles)
-          and fNIRS channels (triangles) are bridged by cross-modal
-          attention edges whose width and opacity encode{' '}
-          <code>α<sub>ij</sub></code>. Layout is a deterministic 250-tick
-          force simulation seeded from a fixed circular initial state.
+          异构图注意力网络。EEG 电极（圆圈）与 fNIRS 通道（三角形）通过
+          跨模态注意力边连接，边的宽度与不透明度编码{' '}
+          <code>α<sub>ij</sub></code>。布局为确定性 250 次迭代的力导向仿
+          真，初始位置为固定环形。
         </p>
       }
       figure={
@@ -326,11 +325,11 @@ function HeGATChart() {
 
 registerChart({
   id: 'hegat-map',
-  title: 'Heterogeneous Graph Attention Map',
-  titleZh: '异构图注意力网络图',
+  title: '异构图注意力网络图',
+  titleEn: 'Heterogeneous Graph Attention Map',
   category: 'architecture',
   summary:
-    'Force-directed bipartite-leaning graph between EEG electrodes and fNIRS channels with attention-weighted edges.',
+    'EEG 电极与 fNIRS 通道之间的力导向近二分图，边以注意力加权。',
   component: HeGATChart,
 });
 

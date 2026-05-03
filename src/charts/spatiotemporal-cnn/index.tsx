@@ -84,23 +84,23 @@ function SpatiotemporalCnn() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Layout',
+      label: '布局',
       fields: [
-        { type: 'number', key: 'g', label: 'layer gap (px)', min: 16, max: 200, step: 2, value: gap, onChange: setGap, slider: true },
-        { type: 'number', key: 'sw', label: 'time-axis scale (px)', min: 30, max: 200, step: 2, value: scaleW, onChange: setScaleW, slider: true },
+        { type: 'number', key: 'g', label: '层间距（px）', min: 16, max: 200, step: 2, value: gap, onChange: setGap, slider: true },
+        { type: 'number', key: 'sw', label: '时间轴缩放（px）', min: 30, max: 200, step: 2, value: scaleW, onChange: setScaleW, slider: true },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'sh', label: 'Tensor shape labels', value: showShapes, onChange: setShowShapes },
+        { type: 'toggle', key: 'sh', label: '张量形状标签', value: showShapes, onChange: setShowShapes },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
     {
-      label: 'Architecture',
+      label: '架构',
       fields: [
-        { type: 'info', key: 'l', label: 'layers', value: String(LAYERS.length) },
+        { type: 'info', key: 'l', label: '层数', value: String(LAYERS.length) },
       ],
     },
   ];
@@ -140,9 +140,9 @@ function SpatiotemporalCnn() {
           presets={[
             {
               id: 'wide',
-              label: 'Wide layer pipe',
-              hint: 'figure',
-              description: 'Wider tensor blocks for inline figures.',
+              label: '宽层管道',
+              hint: '插图',
+              description: '宽张量区块，适合正文插图。',
               apply: () => {
                 setScaleW(96);
                 setGap(72);
@@ -151,9 +151,9 @@ function SpatiotemporalCnn() {
             },
             {
               id: 'compact',
-              label: 'Compact pipe',
-              hint: 'paper',
-              description: 'Tight spacing — column-width figure.',
+              label: '紧凑管道',
+              hint: '论文',
+              description: '紧凑间距 — 栏宽插图。',
               apply: () => {
                 setScaleW(64);
                 setGap(40);
@@ -162,18 +162,18 @@ function SpatiotemporalCnn() {
             },
             {
               id: 'shapesoff',
-              label: 'Shapes off',
-              hint: 'minimal',
-              description: 'Hide tensor labels for slide presentations.',
+              label: '隐藏形状',
+              hint: '极简',
+              description: '隐藏张量标签，便于幻灯片演示。',
               apply: () => {
                 setShowShapes(false);
               },
             },
             {
               id: 'viridis',
-              label: 'Viridis palette',
-              hint: 'palette',
-              description: 'Switch from plasma to viridis.',
+              label: 'Viridis 色带',
+              hint: '色彩',
+              description: '从 plasma 切换到 viridis。',
               apply: () => {
                 setColormap('viridis');
               },
@@ -186,9 +186,9 @@ function SpatiotemporalCnn() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Spacing">
+          <ControlGroup label="间距">
             <NumberSlider
-              label="layer gap"
+              label="层间距"
               value={gap}
               min={30}
               max={140}
@@ -196,17 +196,16 @@ function SpatiotemporalCnn() {
               onChange={setGap}
             />
           </ControlGroup>
-          <ControlGroup label="Palette">
+          <ControlGroup label="配色">
             <ColormapSelect value={colormap} onChange={setColormap} />
           </ControlGroup>
         </>
       }
       notes={
         <p>
-          Pseudo-3D feature volumes drawn in cabinet projection. Width
-          encodes the time dimension <code>T</code>, height encodes channels{' '}
-          <code>C</code>, and depth encodes the temporal receptive field{' '}
-          <code>F</code>. Dilation factors are annotated above each cube.
+          以 Cabinet 投影绘制的伪 3D 特征体。宽度编码时间维 <code>T</code>，高度编码
+          通道 <code>C</code>，深度编码时间感受野 <code>F</code>。每个立方上方
+          标有扩张因子。
         </p>
       }
       figure={
@@ -268,10 +267,10 @@ function SpatiotemporalCnn() {
 
 registerChart({
   id: 'spatiotemporal-cnn',
-  title: 'Spatiotemporal CNN Architecture',
-  titleZh: '时空卷积架构示意图',
+  title: '时空卷积架构示意图',
+  titleEn: 'Spatiotemporal CNN Architecture',
   category: 'architecture',
   summary:
-    'Cabinet-projection cube sequence visualising T × C × F tensor evolution through dilated TCN blocks.',
+    '以 Cabinet 投影立方序列展示 T × C × F 张量在扩张 TCN 中的演进。',
   component: SpatiotemporalCnn,
 });

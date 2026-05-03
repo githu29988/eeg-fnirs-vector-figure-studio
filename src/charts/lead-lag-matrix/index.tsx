@@ -42,26 +42,26 @@ function LeadLagChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Channels',
+      label: '通道',
       fields: [
-        { type: 'number', key: 'n', label: 'N (rows = cols)', min: 4, max: 48, step: 2, value: n, onChange: setN, slider: true },
-        { type: 'info', key: 'eN', label: 'EEG (first half)', value: String(Math.ceil(n / 2)) },
-        { type: 'info', key: 'fN', label: 'fNIRS (second half)', value: String(Math.floor(n / 2)) },
+        { type: 'number', key: 'n', label: 'N（行数＝列数）', min: 4, max: 48, step: 2, value: n, onChange: setN, slider: true },
+        { type: 'info', key: 'eN', label: 'EEG（前半）', value: String(Math.ceil(n / 2)) },
+        { type: 'info', key: 'fN', label: 'fNIRS（后半）', value: String(Math.floor(n / 2)) },
       ],
     },
     {
-      label: 'Seeds',
-      description: 'Synthetic data is reproducible per-seed.',
+      label: '随机种子',
+      description: '合成数据按种子可复现。',
       fields: [
-        { type: 'number', key: 'lseed', label: 'lag seed', min: 0, max: 9999, step: 1, value: lagSeed, onChange: setLagSeed },
-        { type: 'number', key: 'pseed', label: 'p-value seed', min: 0, max: 9999, step: 1, value: pSeed, onChange: setPSeed },
+        { type: 'number', key: 'lseed', label: '滞后种子', min: 0, max: 9999, step: 1, value: lagSeed, onChange: setLagSeed },
+        { type: 'number', key: 'pseed', label: 'p 值种子', min: 0, max: 9999, step: 1, value: pSeed, onChange: setPSeed },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'st', label: 'Significance stars', value: showStars, onChange: setShowStars },
-        { type: 'toggle', key: 'lb', label: 'Channel labels', value: showLabels, onChange: setShowLabels },
+        { type: 'toggle', key: 'st', label: '显著性星号', value: showStars, onChange: setShowStars },
+        { type: 'toggle', key: 'lb', label: '通道标签', value: showLabels, onChange: setShowLabels },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
@@ -87,9 +87,9 @@ function LeadLagChart() {
           presets={[
             {
               id: 'small',
-              label: 'Small panel',
-              hint: 'paper',
-              description: '8×8 lead-lag matrix — column-width figure.',
+              label: '小面板',
+              hint: '论文',
+              description: '8×8 超前–滞后矩阵 — 栏宽插图。',
               apply: () => {
                 setN(8);
                 setShowStars(true);
@@ -98,9 +98,9 @@ function LeadLagChart() {
             },
             {
               id: 'large',
-              label: 'Whole-brain matrix',
-              hint: 'overview',
-              description: '20 channels — full multimodal grid.',
+              label: '全脑矩阵',
+              hint: '总览',
+              description: '20 个通道 — 多模态全网格。',
               apply: () => {
                 setN(20);
                 setShowStars(true);
@@ -109,9 +109,9 @@ function LeadLagChart() {
             },
             {
               id: 'highlight',
-              label: 'Significance only',
-              hint: 'audit',
-              description: 'Stars on, labels hidden — emphasise pattern.',
+              label: '仅显著性',
+              hint: '审计',
+              description: '启用星号、隐藏标签 — 突出模式。',
               apply: () => {
                 setShowStars(true);
                 setShowLabels(false);
@@ -119,9 +119,9 @@ function LeadLagChart() {
             },
             {
               id: 'reseed',
-              label: 'Re-seed both axes',
-              hint: 'shuffle',
-              description: 'Sample new lag + p-value seeds.',
+              label: '两轴重新采样',
+              hint: '重抽',
+              description: '抽取新的滞后与 p 值种子。',
               apply: () => {
                 setLagSeed((s) => s + 1);
                 setPSeed((s) => s + 1);
@@ -135,9 +135,9 @@ function LeadLagChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Channels">
+          <ControlGroup label="通道">
             <NumberSlider
-              label="N (EEG + fNIRS)"
+              label="N（EEG + fNIRS）"
               value={n}
               min={6}
               max={28}
@@ -145,9 +145,9 @@ function LeadLagChart() {
               onChange={setN}
             />
           </ControlGroup>
-          <ControlGroup label="Display">
+          <ControlGroup label="显示">
             <Toggle
-              label="Show significance stars"
+              label="显示显著性星号"
               checked={showStars}
               onChange={setShowStars}
             />
@@ -157,10 +157,9 @@ function LeadLagChart() {
       }
       notes={
         <p>
-          Cross-modal cross-correlation lag matrix. Positive values indicate
-          row leads column; negative values indicate the opposite. Stars use
-          conventional p-value cutoffs (<code>* p&lt;0.05</code>,{' '}
-          <code>** p&lt;0.01</code>, <code>*** p&lt;0.001</code>).
+          跨模态互相关滞后矩阵。正值表示行超前于列；负值反之。星号使用常
+          规 p 值阈值（<code>* p&lt;0.05</code>、
+          <code>** p&lt;0.01</code>、<code>*** p&lt;0.001</code>）。
         </p>
       }
       figure={
@@ -307,10 +306,10 @@ function LeadLagChart() {
 
 registerChart({
   id: 'lead-lag-matrix',
-  title: 'Cross-modal Lead–Lag Matrix',
-  titleZh: '跨模态超前-滞后相关矩阵',
+  title: '跨模态超前-滞后相关矩阵',
+  titleEn: 'Cross-modal Lead–Lag Matrix',
   category: 'clinical',
   summary:
-    'Symmetric matrix of cross-correlation lags between EEG and fNIRS channels with significance stars.',
+    'EEG 与 fNIRS 通道之间互相关滞后的对称矩阵，并标有显著性星号。',
   component: LeadLagChart,
 });

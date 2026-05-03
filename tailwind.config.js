@@ -4,9 +4,19 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: [
+          'Inter',
+          '"Noto Sans SC"',
+          'system-ui',
+          'sans-serif',
+        ],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
-        serif: ['"Crimson Pro"', '"Times New Roman"', 'serif'],
+        serif: [
+          '"Crimson Pro"',
+          '"Noto Serif SC"',
+          '"Times New Roman"',
+          'serif',
+        ],
       },
       colors: {
         ink: {
