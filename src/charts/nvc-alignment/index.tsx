@@ -15,6 +15,9 @@ import {
 } from '../../lib/synthetic';
 import type { ExpertSchema } from '../../components/ExpertPanel';
 import { InspirationPanel } from '../../components/InspirationPanel';
+import { useDataset } from '../../lib/useDataset';
+import { DataLoader } from '../../components/DataLoader';
+import { bandpass, decimate, rmsEnvelope } from '../../lib/signal';
 import { registerChart } from '../../registry';
 
 interface SeizureBand {
@@ -39,7 +42,85 @@ function NVCChart() {
   const [eegSeed, setEegSeed] = useState(11);
   const [hboSeed, setHboSeed] = useState(13);
   const [hbrCoupling, setHbrCoupling] = useState(0.7);
+  const [eegChannel, setEegChannel] = useState<string>('');
+  const [showAlphaEnv, setShowAlphaEnv] = useState(true);
+  const [alphaWinSec, setAlphaWinSec] = useState(1.0);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  const { status } = useDataset();
+  const loaded = status.kind === 'loaded' ? status.dataset : null;
+
+  // EEG channels available for selection. When a dataset is loaded
+  // we expose its channels as the selection set; otherwise the
+  // synthetic single channel is the only option.
+  const eegChannels = useMemo(() => {
+    if (!loaded) return [];
+    return loaded.channels.filter((c) => {
+      const t = c.type.toLowerCase();
+      return t === '' || t === 'eeg' || t === 'unknown';
+    });
+  }, [loaded]);
+
+  // Pick the active EEG channel: explicit selection > Pz default > first.
+  const activeEeg = useMemo(() => {
+    if (eegChannels.length === 0) return null;
+    const byName = eegChannels.find(
+      (c) => c.label.toLowerCase() === eegChannel.toLowerCase(),
+    );
+    if (byName) return byName;
+    const pz = eegChannels.find((c) => c.label.toLowerCase() === 'pz');
+    return pz ?? eegChannels[0];
+  }, [eegChannels, eegChannel]);
+
+  const eeg = useMemo(() => {
+    if (activeEeg) {
+      // Decimate raw samples to the chart's display fs and clip to
+      // the user-chosen window length so the dual-axis stays
+      // synchronised with the (still-synthetic) HbO trace.
+      const factor = Math.max(1, Math.round(activeEeg.fs / eegFs));
+      const decimated = decimate(activeEeg.samples, factor);
+      const dispFs = activeEeg.fs / factor;
+      const maxSamples = Math.min(
+        decimated.length,
+        Math.round(duration * dispFs),
+      );
+      const t = new Array<number>(maxSamples);
+      const v = new Array<number>(maxSamples);
+      for (let i = 0; i < maxSamples; i++) {
+        t[i] = i / dispFs;
+        v[i] = decimated[i];
+      }
+      return { t, v };
+    }
+    return generateEegLikeSeries(eegSeed, duration, eegFs);
+  }, [activeEeg, duration, eegFs, eegSeed]);
+
+  // α-band envelope is computed at the channel's native fs so
+  // bandpass cut-offs stay well below Nyquist, then decimated to
+  // the fNIRS axis for plotting.
+  const alphaEnv = useMemo(() => {
+    if (!activeEeg || !showAlphaEnv) return null;
+    const fs = activeEeg.fs;
+    const lo = 8;
+    const hi = Math.min(13, fs * 0.45);
+    if (hi <= lo) return null;
+    const filtered = bandpass(activeEeg.samples, fs, lo, hi);
+    const env = rmsEnvelope(filtered, fs, alphaWinSec);
+    const factor = Math.max(1, Math.round(fs / hrfFs));
+    const decimated = decimate(env, factor);
+    const dispFs = fs / factor;
+    const maxSamples = Math.min(
+      decimated.length,
+      Math.round(duration * dispFs),
+    );
+    const t = new Array<number>(maxSamples);
+    const v = new Array<number>(maxSamples);
+    for (let i = 0; i < maxSamples; i++) {
+      t[i] = i / dispFs;
+      v[i] = decimated[i];
+    }
+    return { t, v };
+  }, [activeEeg, showAlphaEnv, alphaWinSec, hrfFs, duration]);
 
   const expertSchema: ExpertSchema = [
     {
@@ -59,6 +140,68 @@ function NVCChart() {
       ],
     },
     {
+      label: 'Loaded data',
+      fields: activeEeg
+        ? [
+            {
+              type: 'info',
+              key: 'src',
+              label: 'source',
+              value: `EDF · ${loaded?.fileNames[0] ?? '?'}`,
+            },
+            {
+              type: 'select',
+              key: 'ch',
+              label: 'EEG channel',
+              value: activeEeg.label,
+              options: eegChannels.map((c) => ({
+                value: c.label,
+                label: `${c.label} · ${c.fs.toFixed(0)} Hz`,
+              })),
+              onChange: setEegChannel,
+            },
+            {
+              type: 'info',
+              key: 'fs',
+              label: 'native fs',
+              value: `${activeEeg.fs.toFixed(0)} Hz`,
+            },
+            {
+              type: 'info',
+              key: 'len',
+              label: 'duration',
+              value: `${(activeEeg.samples.length / activeEeg.fs).toFixed(1)} s`,
+            },
+            {
+              type: 'toggle',
+              key: 'aenv',
+              label: 'α-band envelope (8–13 Hz)',
+              value: showAlphaEnv,
+              onChange: setShowAlphaEnv,
+            },
+            {
+              type: 'number',
+              key: 'aw',
+              label: 'α-RMS window (s)',
+              min: 0.25,
+              max: 4,
+              step: 0.25,
+              value: alphaWinSec,
+              onChange: setAlphaWinSec,
+              slider: true,
+              format: (v) => v.toFixed(2),
+            },
+          ]
+        : [
+            {
+              type: 'info',
+              key: 'src',
+              label: 'source',
+              value: 'synthetic (no EDF loaded)',
+            },
+          ],
+    },
+    {
       label: 'Display',
       fields: [
         { type: 'toggle', key: 'b', label: 'Seizure bands', value: showBands, onChange: setShowBands },
@@ -66,10 +209,6 @@ function NVCChart() {
     },
   ];
 
-  const eeg = useMemo(
-    () => generateEegLikeSeries(eegSeed, duration, eegFs),
-    [eegSeed, duration, eegFs],
-  );
   const hbo = useMemo(
     () => generateHrfLikeSeries(hboSeed, duration, hrfFs),
     [hboSeed, duration, hrfFs],
@@ -148,8 +287,28 @@ function NVCChart() {
     [hbr.t, hbr.v],
   );
 
+  // α-envelope is in EEG units (μV); to plot it on the same right
+  // axis as HbO/HbR we normalise it to [0, hbMax] so the *shape*
+  // (peaks/troughs vs the hemodynamic response) is what's visible.
+  const alphaEnvPoints = useMemo(() => {
+    if (!alphaEnv || alphaEnv.v.length === 0) return null;
+    let envMax = 0;
+    for (const v of alphaEnv.v) if (v > envMax) envMax = v;
+    if (envMax <= 0) return null;
+    return alphaEnv.t.map((t, i) => ({
+      t,
+      v: (alphaEnv.v[i] / envMax) * hbMax,
+    }));
+  }, [alphaEnv, hbMax]);
+
+  const alphaEnvLine = d3line<{ t: number; v: number }>()
+    .x((d) => xAxis.scale(d.t))
+    .y((d) => hbAxis.scale(d.v))
+    .curve(curveMonotoneX);
+
   return (
     <ChartShell
+      dataLoader={<DataLoader />}
       inspiration={
         <InspirationPanel
           presets={[
@@ -235,13 +394,25 @@ function NVCChart() {
         </>
       }
       notes={
-        <p>
-          Dual-axis time series aligned on a shared timestamp. EEG (left)
-          retains raw spikes while HbO/HbR (right) are smoothed via a
-          monotone-cubic spline so the slow neurovascular response stays
-          visually separable. Background bands flag inter-ictal,
-          pre-ictal, and ictal periods.
-        </p>
+        <div className="space-y-2">
+          <p>
+            Dual-axis time series aligned on a shared timestamp. EEG
+            (left) retains raw spikes while HbO/HbR (right) are
+            smoothed via a monotone-cubic spline so the slow
+            neurovascular response stays visually separable.
+            Background bands flag inter-ictal, pre-ictal, and ictal
+            periods.
+          </p>
+          <p>
+            Drop an EDF (with optional BIDS sidecars) into the Data
+            ingestion panel to drive the EEG trace from a real
+            recording. The selected channel is band-passed at 8–13
+            Hz and its RMS envelope is overlaid (dashed green,
+            normalised onto the right axis) as a quick proxy for
+            α-power vs the hemodynamic response. HbO/HbR remain
+            synthetic until SNIRF ingestion lands.
+          </p>
+        </div>
       }
       figure={
         <FigureFrame
@@ -303,10 +474,20 @@ function NVCChart() {
             <path d={eegLine(eegPoints) ?? undefined} stroke="#0d1117" strokeWidth={0.7} fill="none" opacity={0.85} />
             <path d={hboLine(hboPoints) ?? undefined} stroke="#dc2626" strokeWidth={2} fill="none" />
             <path d={hbrLine(hbrPoints) ?? undefined} stroke="#1d4ed8" strokeWidth={2} fill="none" />
+            {alphaEnvPoints ? (
+              <path
+                d={alphaEnvLine(alphaEnvPoints) ?? undefined}
+                stroke="#16a34a"
+                strokeWidth={1.6}
+                strokeDasharray="4 3"
+                fill="none"
+                opacity={0.95}
+              />
+            ) : null}
 
             {/* Legend */}
             <g transform={`translate(${innerW - 220}, 12)`}>
-              <rect width={220} height={56} rx={4} fill="white" fillOpacity={0.92} stroke="currentColor" strokeOpacity={0.3} />
+              <rect width={220} height={alphaEnvPoints ? 76 : 56} rx={4} fill="white" fillOpacity={0.92} stroke="currentColor" strokeOpacity={0.3} />
               <g transform="translate(10, 18)">
                 <line x1={0} x2={20} y1={0} y2={0} stroke="#0d1117" strokeWidth={0.7} />
                 <text x={26} y={4} fontSize={11} fill="currentColor">
@@ -325,6 +506,14 @@ function NVCChart() {
                   ΔHbR
                 </text>
               </g>
+              {alphaEnvPoints ? (
+                <g transform="translate(10, 56)">
+                  <line x1={0} x2={20} y1={0} y2={0} stroke="#16a34a" strokeWidth={1.6} strokeDasharray="4 3" />
+                  <text x={26} y={4} fontSize={11} fill="currentColor">
+                    α-env (8–13 Hz, norm.)
+                  </text>
+                </g>
+              ) : null}
             </g>
           </g>
         </FigureFrame>
