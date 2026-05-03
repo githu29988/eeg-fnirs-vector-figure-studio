@@ -134,6 +134,11 @@ export function resampleLinear(
     out.fill(samples[0]);
     return out;
   }
+  if (targetLen === 1) {
+    // Single output sample: take the source midpoint.
+    out[0] = samples[Math.floor((samples.length - 1) / 2)];
+    return out;
+  }
   const ratio = (samples.length - 1) / (targetLen - 1);
   for (let i = 0; i < targetLen; i++) {
     const x = i * ratio;
