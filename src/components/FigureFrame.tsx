@@ -58,7 +58,8 @@ export const FigureFrame = forwardRef<SVGSVGElement, FigureFrameProps>(
             <div
               ref={titleRef}
               style={{
-                fontFamily: 'Inter, system-ui, sans-serif',
+                fontFamily:
+                  'Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
                 fontSize: 14,
                 fontWeight: 600,
                 color: 'currentColor',
@@ -83,7 +84,8 @@ export const FigureFrame = forwardRef<SVGSVGElement, FigureFrameProps>(
             <div
               ref={captionRef}
               style={{
-                fontFamily: '"Crimson Pro", "Times New Roman", serif',
+                fontFamily:
+                  '"Crimson Pro", "Noto Serif SC", "Source Han Serif SC", "Times New Roman", serif',
                 fontSize: 12,
                 fontStyle: 'italic',
                 color: 'currentColor',

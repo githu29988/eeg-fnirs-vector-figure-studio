@@ -392,10 +392,9 @@ function Legend({
 
 registerChart({
   id: 'roc-pr-curves',
-  title: 'ROC & Precision–Recall Curves',
-  titleZh: '出版级 ROC / PR 曲线',
+  title: '出版级 ROC / PR 曲线',
+  titleEn: 'ROC & Precision–Recall Curves',
   category: 'evaluation',
-  summary:
-    'Side-by-side ROC and PR curves for multiple models with AUC, AP, and bootstrap 95% CI.',
+  summary: '多模型 ROC 与 PR 曲线并列展示，附带 AUC、AP 与 bootstrap 95% 置信区间。',
   component: RocPrChart,
 });

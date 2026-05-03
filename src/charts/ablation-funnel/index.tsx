@@ -219,10 +219,9 @@ function AblationFunnel() {
 
 registerChart({
   id: 'ablation-funnel',
-  title: 'Ablation Contribution Funnel',
-  titleZh: '消融实验贡献度漏斗图',
+  title: '消融实验贡献度漏斗图',
+  titleEn: 'Ablation Contribution Funnel',
   category: 'evaluation',
-  summary:
-    'Trapezoidal funnel encoding cumulative accuracy after removing each model component.',
+  summary: '梯形漏斗逐层编码移除各组件后的累计准确率。',
   component: AblationFunnel,
 });

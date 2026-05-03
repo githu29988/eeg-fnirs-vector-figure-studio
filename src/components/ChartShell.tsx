@@ -56,16 +56,14 @@ export function ChartShell({
             <header className="mb-3 flex items-start justify-between gap-2">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-                  {activeMode === 'expert'
-                    ? 'Expert parameter tree'
-                    : 'Simple inspector'}
+                  {activeMode === 'expert' ? '专家参数树' : '简明面板'}
                 </p>
                 <p className="text-[11px] text-ink-300">
                   {activeMode === 'expert'
-                    ? 'Full parameter surface; collapse groups for focus.'
+                    ? '完整参数面，可折叠分组以集中注意。'
                     : hasExpert
-                    ? 'Core controls. Switch to expert for the full tree.'
-                    : 'Core controls.'}
+                    ? '常用控件。如需完整参数请切换至专家模式。'
+                    : '常用控件。'}
                 </p>
               </div>
               {hasExpert ? (
@@ -85,10 +83,10 @@ export function ChartShell({
           <section className="rounded-lg border border-ink-700 bg-ink-900 p-4">
             <header className="mb-3">
               <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-                Inspiration
+                灵感面板
               </p>
               <p className="text-[11px] text-ink-300">
-                Click a variant to apply it to the current figure.
+                点击下方变体即可一键应用到当前图表。
               </p>
             </header>
             <div>{inspiration}</div>
@@ -98,7 +96,7 @@ export function ChartShell({
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-            Figure preview
+            图表预览
           </p>
           <ExportToolbar getSvg={getSvg} baseFilename={filename} />
         </div>
@@ -125,24 +123,29 @@ function ModeToggle({
   return (
     <div
       role="tablist"
-      aria-label="Inspector mode"
+      aria-label="控制面板模式"
       className="flex shrink-0 rounded border border-ink-600 bg-ink-800 p-0.5 text-[10px]"
     >
-      {(['simple', 'expert'] as const).map((m) => (
+      {(
+        [
+          { id: 'simple', label: '简明' },
+          { id: 'expert', label: '专家' },
+        ] as const
+      ).map((m) => (
         <button
-          key={m}
+          key={m.id}
           type="button"
           role="tab"
-          aria-selected={mode === m}
-          onClick={() => onChange(m)}
+          aria-selected={mode === m.id}
+          onClick={() => onChange(m.id)}
           className={
-            'rounded px-2 py-0.5 font-medium uppercase tracking-wider transition-colors ' +
-            (mode === m
+            'rounded px-2 py-0.5 font-medium tracking-wider transition-colors ' +
+            (mode === m.id
               ? 'bg-accent text-ink-900'
               : 'text-ink-300 hover:text-ink-100')
           }
         >
-          {m}
+          {m.label}
         </button>
       ))}
     </div>

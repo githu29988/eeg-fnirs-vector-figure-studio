@@ -268,10 +268,9 @@ function SpatiotemporalCnn() {
 
 registerChart({
   id: 'spatiotemporal-cnn',
-  title: 'Spatiotemporal CNN Architecture',
-  titleZh: '时空卷积架构示意图',
+  title: '时空卷积架构示意图',
+  titleEn: 'Spatiotemporal CNN Architecture',
   category: 'architecture',
-  summary:
-    'Cabinet-projection cube sequence visualising T × C × F tensor evolution through dilated TCN blocks.',
+  summary: '柜投影立方体序列可视化 T × C × F 张量在膨胀 TCN 块中的演化。',
   component: SpatiotemporalCnn,
 });

@@ -287,10 +287,9 @@ function CorticalChart() {
 
 registerChart({
   id: 'cortical-3d',
-  title: '3.5D Cortical Projection',
-  titleZh: '3.5D 皮层投影热力图',
+  title: '3.5D 皮层投影热力图',
+  titleEn: '3.5D Cortical Projection',
   category: 'physiology',
-  summary:
-    'Procedural brain mesh rendered as depth-sorted SVG triangles with per-vertex activation colouring.',
+  summary: '程序化生成的大脑网格以深度排序的 SVG 三角形渲染，按顶点激活上色。',
   component: CorticalChart,
 });

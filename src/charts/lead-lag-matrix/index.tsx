@@ -307,10 +307,9 @@ function LeadLagChart() {
 
 registerChart({
   id: 'lead-lag-matrix',
-  title: 'Cross-modal Lead–Lag Matrix',
-  titleZh: '跨模态超前-滞后相关矩阵',
+  title: '跨模态超前-滞后相关矩阵',
+  titleEn: 'Cross-modal Lead–Lag Matrix',
   category: 'clinical',
-  summary:
-    'Symmetric matrix of cross-correlation lags between EEG and fNIRS channels with significance stars.',
+  summary: 'EEG 与 fNIRS 通道间互相关滞后的对称矩阵，附带显著性星标。',
   component: LeadLagChart,
 });

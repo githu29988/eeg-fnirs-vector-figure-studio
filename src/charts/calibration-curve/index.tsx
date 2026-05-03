@@ -310,10 +310,9 @@ function CalibrationChart() {
 
 registerChart({
   id: 'calibration-curve',
-  title: 'Calibration Curve',
-  titleZh: '校准曲线',
+  title: '校准曲线',
+  titleEn: 'Calibration Curve',
   category: 'evaluation',
-  summary:
-    'Reliability diagram with per-bin marker size encoding sample count, plus ECE for each model.',
+  summary: '可靠性图：每个分箱标记的大小编码样本量，并标注各模型的 ECE。',
   component: CalibrationChart,
 });

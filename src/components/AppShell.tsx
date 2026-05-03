@@ -8,18 +8,18 @@ export function AppShell() {
       <aside className="flex h-full flex-col border-r border-ink-700 bg-ink-900">
         <header className="border-b border-ink-700 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-            EEG · fNIRS
+            脑电 · 近红外
           </p>
           <h1 className="mt-1 font-serif text-lg leading-tight">
-            Vector Figure Studio
+            矢量图谱工作台
           </h1>
           <p className="mt-1 text-xs text-ink-300">
-            Publication-grade figures for multimodal neuroscience.
+            多模态神经科学发表级矢量图表。
           </p>
         </header>
 
         <nav className="flex-1 overflow-y-auto px-2 py-3 text-sm">
-          <NavItem to="/" exact label="Overview" />
+          <NavItem to="/" exact label="总览" />
           {CATEGORIES.filter((c) => c.id !== 'overview').map((cat) => {
             const items = charts.filter((c) => c.category === cat.id);
             if (items.length === 0) return null;
@@ -34,7 +34,7 @@ export function AppShell() {
                       <NavItem
                         to={`/chart/${item.id}`}
                         label={item.title}
-                        sublabel={item.titleZh}
+                        sublabel={item.titleEn}
                         wip={item.status === 'wip'}
                       />
                     </li>
@@ -46,7 +46,7 @@ export function AppShell() {
         </nav>
 
         <footer className="border-t border-ink-700 p-3 text-[11px] text-ink-300">
-          <p>v0.1.0 · MVP</p>
+          <p>v0.1.0 · MVP版</p>
         </footer>
       </aside>
 
@@ -87,7 +87,7 @@ function NavItem({
         <span className="truncate">{label}</span>
         {wip ? (
           <span className="rounded bg-accent-warm/15 px-1 text-[10px] font-medium text-accent-warm">
-            WIP
+            开发中
           </span>
         ) : null}
       </div>

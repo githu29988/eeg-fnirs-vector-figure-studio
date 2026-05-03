@@ -479,10 +479,9 @@ function TopomapChart() {
 
 registerChart({
   id: 'eeg-fnirs-topomap',
-  title: 'EEG–fNIRS Co-registration Topomap',
-  titleZh: '脑电-近红外共注册拓扑图',
+  title: '脑电-近红外共注册拓扑图',
+  titleEn: 'EEG–fNIRS Co-registration Topomap',
   category: 'physiology',
-  summary:
-    'Azimuthal-equidistant 10-20 head map overlaid with fNIRS source/detector pairs and Banana-shape photon paths.',
+  summary: '方位等距 10-20 头部图叠加 fNIRS 源/探头对与香蕉形光路。',
   component: TopomapChart,
 });

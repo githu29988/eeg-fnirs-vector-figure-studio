@@ -262,10 +262,9 @@ function FeatureManifold() {
 
 registerChart({
   id: 'feature-manifold',
-  title: 'Feature Manifold (t-SNE / UMAP)',
-  titleZh: '特征流形可视化',
+  title: '特征流形可视化',
+  titleEn: 'Feature Manifold (t-SNE / UMAP)',
   category: 'evaluation',
-  summary:
-    'Class-coloured 2D embedding scatter with optional 95% confidence ellipses per class.',
+  summary: '按类别上色的二维嵌入散点，可选叠加每类 95% 置信椭圆。',
   component: FeatureManifold,
 });

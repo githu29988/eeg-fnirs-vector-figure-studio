@@ -312,10 +312,9 @@ function SeizureFocusChart() {
 
 registerChart({
   id: 'seizure-focus',
-  title: 'Seizure Focus Localisation',
-  titleZh: '癫痫病灶定位矢量图',
+  title: '癫痫病灶定位矢量图',
+  titleEn: 'Seizure Focus Localisation',
   category: 'clinical',
-  summary:
-    'Contour map of GAT importance scores over the head disc with anatomical landmark overlays.',
+  summary: '头盘上 GAT 重要性得分的等高线图，叠加解剖标志。',
   component: SeizureFocusChart,
 });

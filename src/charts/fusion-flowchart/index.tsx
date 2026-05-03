@@ -328,10 +328,9 @@ function FlowchartChart() {
 
 registerChart({
   id: 'fusion-flowchart',
-  title: 'Bimodal Feature Fusion Flowchart',
-  titleZh: '双模态特征融合流程图',
+  title: '双模态特征融合流程图',
+  titleEn: 'Bimodal Feature Fusion Flowchart',
   category: 'architecture',
-  summary:
-    'Layered DAG of the EEG/fNIRS fusion network with tensor-shape edge annotations.',
+  summary: 'EEG/fNIRS 融合网络的分层 DAG，边上标注张量形状。',
   component: FlowchartChart,
 });

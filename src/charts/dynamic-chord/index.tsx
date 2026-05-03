@@ -237,10 +237,9 @@ function DynamicChordChart() {
 
 registerChart({
   id: 'dynamic-chord',
-  title: 'Dynamic Connectivity Chord',
-  titleZh: '动态连接注意力图',
+  title: '动态连接注意力图',
+  titleEn: 'Dynamic Connectivity Chord',
   category: 'clinical',
-  summary:
-    'Time-sliceable chord diagram of a T × N × N attention tensor with hemispheric clustering.',
+  summary: 'T × N × N 注意力张量的可时间切片弦图，包含半球聚类。',
   component: DynamicChordChart,
 });

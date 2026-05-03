@@ -524,10 +524,9 @@ function NVCChart() {
 
 registerChart({
   id: 'nvc-alignment',
-  title: 'Neurovascular Coupling Alignment',
-  titleZh: '神经血管耦合对齐时序图',
+  title: '神经血管耦合对齐时序图',
+  titleEn: 'Neurovascular Coupling Alignment',
   category: 'physiology',
-  summary:
-    'Dual-axis EEG vs HbO/HbR time series aligned on a shared timestamp with seizure-stage shading.',
+  summary: 'EEG 与 HbO/HbR 双轴时序对齐于共享时间戳，叠加癫痫分期阴影。',
   component: NVCChart,
 });

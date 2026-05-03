@@ -52,13 +52,13 @@ export function getColormap(name: ColormapName): (t: number) => string {
 }
 
 export const COLORMAP_OPTIONS: { value: ColormapName; label: string }[] = [
-  { value: 'viridis', label: 'Viridis (default)' },
+  { value: 'viridis', label: 'Viridis（默认）' },
   { value: 'magma', label: 'Magma' },
   { value: 'inferno', label: 'Inferno' },
-  { value: 'cividis', label: 'Cividis (CVD-friendly)' },
+  { value: 'cividis', label: 'Cividis（色弱友好）' },
   { value: 'plasma', label: 'Plasma' },
-  { value: 'coolwarm', label: 'Cool–Warm (diverging)' },
-  { value: 'turbo', label: 'Turbo (use sparingly)' },
+  { value: 'coolwarm', label: 'Cool–Warm（双向）' },
+  { value: 'turbo', label: 'Turbo（慎用）' },
 ];
 
 /**

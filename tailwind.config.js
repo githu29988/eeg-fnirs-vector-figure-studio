@@ -4,9 +4,25 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        // Chinese-aware fallbacks: latin glyphs come from Inter/Crimson Pro,
+        // CJK glyphs fall through to Noto Sans/Serif SC, then PingFang/MS YaHei
+        // on local systems that have them.
+        sans: [
+          'Inter',
+          '"Noto Sans SC"',
+          '"PingFang SC"',
+          '"Microsoft YaHei"',
+          'system-ui',
+          'sans-serif',
+        ],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
-        serif: ['"Crimson Pro"', '"Times New Roman"', 'serif'],
+        serif: [
+          '"Crimson Pro"',
+          '"Noto Serif SC"',
+          '"Source Han Serif SC"',
+          '"Times New Roman"',
+          'serif',
+        ],
       },
       colors: {
         ink: {

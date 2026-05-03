@@ -36,11 +36,11 @@ export function DataLoader() {
     <section className="rounded-lg border border-ink-700 bg-ink-900 p-4">
       <header className="mb-3">
         <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-          Data ingestion
+          数据导入
         </p>
         <p className="text-[11px] text-ink-300">
-          Drop an EDF / BIDS bundle to drive supported figures with real
-          recordings. Synthetic data is used otherwise.
+          拖入 EDF / BIDS 文件包即可用真实采集数据驱动支持的图表；
+          未导入时使用合成数据。
         </p>
       </header>
 
@@ -59,24 +59,24 @@ export function DataLoader() {
         }
       >
         <p className="text-center text-ink-300">
-          Drop <code>.edf</code> + optional <code>_channels.tsv</code> /{' '}
-          <code>_electrodes.tsv</code> / <code>_eeg.json</code> here
+          拖入 <code>.edf</code> 及可选的 <code>_channels.tsv</code> /{' '}
+          <code>_electrodes.tsv</code> / <code>_eeg.json</code> 侧车文件
         </p>
         <div className="flex justify-center gap-2">
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="rounded border border-ink-600 bg-ink-800 px-3 py-1 text-[11px] uppercase tracking-wider text-ink-100 hover:border-ink-500 hover:bg-ink-700"
+            className="rounded border border-ink-600 bg-ink-800 px-3 py-1 text-[11px] tracking-wider text-ink-100 hover:border-ink-500 hover:bg-ink-700"
           >
-            Choose files
+            选择文件
           </button>
           {status.kind === 'loaded' || status.kind === 'error' ? (
             <button
               type="button"
               onClick={clear}
-              className="rounded border border-ink-600 bg-ink-800 px-3 py-1 text-[11px] uppercase tracking-wider text-ink-100 hover:border-ink-500 hover:bg-ink-700"
+              className="rounded border border-ink-600 bg-ink-800 px-3 py-1 text-[11px] tracking-wider text-ink-100 hover:border-ink-500 hover:bg-ink-700"
             >
-              Clear
+              清除
             </button>
           ) : null}
         </div>
@@ -92,28 +92,28 @@ export function DataLoader() {
 
       <div className="mt-3 text-[11px]">
         {status.kind === 'idle' ? (
-          <p className="text-ink-300">Status: synthetic data (no file loaded).</p>
+          <p className="text-ink-300">
+            状态：合成数据（尚未导入文件）。
+          </p>
         ) : null}
         {status.kind === 'loading' ? (
           <p className="text-ink-100">
-            Parsing {status.files.length} file
-            {status.files.length === 1 ? '' : 's'}…
+            正在解析 {status.files.length} 个文件…
           </p>
         ) : null}
         {status.kind === 'error' ? (
-          <p className="text-rose-400">Error: {status.message}</p>
+          <p className="text-rose-400">错误：{status.message}</p>
         ) : null}
         {status.kind === 'loaded' ? (
           <div className="space-y-1 text-ink-100">
             <p>
-              Loaded <span className="font-mono">{status.dataset.variant}</span> ·{' '}
-              {status.dataset.channels.length} numeric channel
-              {status.dataset.channels.length === 1 ? '' : 's'} from{' '}
-              {status.dataset.fileNames.join(', ')}
+              已导入 <span className="font-mono">{status.dataset.variant}</span> ·共{' '}
+              {status.dataset.channels.length} 个数值通道，来自{' '}
+              {status.dataset.fileNames.join('、')}
             </p>
             {status.dataset.bidsTask?.taskName ? (
               <p className="text-ink-300">
-                Task: {status.dataset.bidsTask.taskName}
+                任务：{status.dataset.bidsTask.taskName}
               </p>
             ) : null}
             {status.dataset.notes.length > 0 ? (

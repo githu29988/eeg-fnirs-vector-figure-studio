@@ -326,11 +326,10 @@ function HeGATChart() {
 
 registerChart({
   id: 'hegat-map',
-  title: 'Heterogeneous Graph Attention Map',
-  titleZh: '异构图注意力网络图',
+  title: '异构图注意力网络图',
+  titleEn: 'Heterogeneous Graph Attention Map',
   category: 'architecture',
-  summary:
-    'Force-directed bipartite-leaning graph between EEG electrodes and fNIRS channels with attention-weighted edges.',
+  summary: 'EEG 电极与 fNIRS 通道之间的力导向二分倾向图，边权由注意力分数编码。',
   component: HeGATChart,
 });
 

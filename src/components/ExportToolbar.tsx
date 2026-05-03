@@ -49,7 +49,7 @@ export function ExportToolbar({
         disabled={busy}
         className="rounded border border-ink-600 bg-ink-800 px-3 py-1.5 font-medium text-ink-50 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? 'Rendering…' : 'Export SVG'}
+        {busy ? '渲染中…' : '导出 SVG'}
       </button>
       <div className="flex items-center gap-1">
         <button
@@ -58,7 +58,7 @@ export function ExportToolbar({
           disabled={busy}
           className="rounded border border-ink-600 bg-ink-800 px-3 py-1.5 font-medium text-ink-50 hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? 'Rendering…' : `Export PNG @ ${dpi} DPI`}
+          {busy ? '渲染中…' : `导出 PNG · ${dpi} DPI`}
         </button>
         <select
           value={dpi}

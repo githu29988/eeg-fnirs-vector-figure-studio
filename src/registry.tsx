@@ -9,10 +9,10 @@ export interface ChartCategory {
 export interface ChartEntry {
   /** URL slug. */
   id: string;
-  /** Display name in English. */
+  /** 显示名称（中文）。 */
   title: string;
-  /** Optional Chinese title for bilingual UI. */
-  titleZh?: string;
+  /** 可选的英文名称，需要中英双语时使用。 */
+  titleEn?: string;
   /** Short summary shown in the sidebar. */
   summary: string;
   category: ChartCategory['id'];
@@ -22,26 +22,26 @@ export interface ChartEntry {
 }
 
 export const CATEGORIES: ChartCategory[] = [
-  { id: 'overview', label: 'Overview' },
+  { id: 'overview', label: '总览' },
   {
     id: 'architecture',
-    label: 'Model Architecture',
-    description: 'Network topology, fusion logic, and tensor flow.',
+    label: '模型架构',
+    description: '网络拓扑、融合逻辑与张量流动。',
   },
   {
     id: 'physiology',
-    label: 'Neurophysiology & Topology',
-    description: 'Sensor space, neurovascular coupling, cortical projection.',
+    label: '神经生理与拓扑',
+    description: '传感器空间、神经血管耦合、皮层投影。',
   },
   {
     id: 'clinical',
-    label: 'Seizure Analysis & Clinical',
-    description: 'Focus localization, dynamic connectivity, lead-lag.',
+    label: '癫痫分析与临床',
+    description: '病灶定位、动态连接、超前–滞后。',
   },
   {
     id: 'evaluation',
-    label: 'Publication Metrics',
-    description: 'ROC/PR, manifolds, ablation studies.',
+    label: '发表与评估指标',
+    description: 'ROC/PR、特征流形、消融实验。',
   },
 ];
 
