@@ -118,6 +118,7 @@ export async function replaceLatexForeignObjects(svg: SVGSVGElement): Promise<vo
     );
     const fontWeight = fo.getAttribute('data-latex-font-weight') ?? '400';
     const fontStyle = fo.getAttribute('data-latex-font-style') ?? 'normal';
+    const fillColor = fo.getAttribute('data-latex-color') ?? null;
 
     const x = parseFloat(fo.getAttribute('x') ?? '0');
     const y = parseFloat(fo.getAttribute('y') ?? '0');
@@ -162,6 +163,12 @@ export async function replaceLatexForeignObjects(svg: SVGSVGElement): Promise<vo
     );
     g.setAttribute('font-weight', fontWeight);
     g.setAttribute('font-style', fontStyle);
+    if (fillColor) {
+      // Per-line colour override. MathJax glyph paths inherit `fill`
+      // through the wrapper `<g>`, so this single attribute is enough
+      // to recolour the whole formula.
+      g.setAttribute('fill', fillColor);
+    }
     g.setAttribute('aria-label', latex);
 
     // Parse the MathJax SVG markup into a real DOM element under our
