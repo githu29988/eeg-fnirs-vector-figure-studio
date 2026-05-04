@@ -58,6 +58,28 @@ interface PanelSpec {
 }
 
 /**
+ * Per-line styling override applied to a single body line within a
+ * panel. Anything left undefined falls back to the panel-level
+ * defaults (which in turn fall back to the chart-level globals).
+ */
+interface LineOverride {
+  /** Replace the inherited body font size (px). */
+  size?: number;
+  /** 400 (normal) or 700 (bold). */
+  weight?: number;
+  /** True = italic. */
+  italic?: boolean;
+  /** Text colour as a hex string (e.g. `#1c1c1c`). */
+  color?: string;
+  /** Per-line alignment override (left / center / right). */
+  align?: Align;
+  /** Horizontal offset in px (positive = move right). */
+  dx?: number;
+}
+
+type LineOverrideMap = Record<string, LineOverride>;
+
+/**
  * Per-panel UI overrides. Empty / undefined fields fall back to the
  * baseline `EEG_ENCODER_PANELS` entry and the global header / body
  * font sizes. Stored as a plain map so the inspector can edit each
@@ -84,6 +106,12 @@ interface PanelOverride {
   /** Position offsets relative to the grid slot (px). */
   dx?: number;
   dy?: number;
+  /**
+   * Per-line styling overrides keyed by line index (as a string). Out
+   * of bounds entries (line removed) are ignored at render time and
+   * cleaned up when the body text changes.
+   */
+  lineOverrides?: LineOverrideMap;
 }
 
 type PanelOverrideMap = Record<string, PanelOverride>;
@@ -459,8 +487,20 @@ function EegEncoderDetailChart() {
       }
     | null
   >(null);
+  /**
+   * Sticky pointer to the body line currently being styled. Set when
+   * the user clicks a body line in the preview, cleared when the user
+   * clicks a header / picks a different panel via the dropdown. The
+   * inspector reads this to render the per-line styling sub-section.
+   */
+  const [selectedBodyLine, setSelectedBodyLine] = useState<{
+    panelId: string;
+    lineIndex: number;
+  } | null>(null);
+
   const requestFocusHeader = useCallback((panelId: string) => {
     setSelectedPanelId(panelId);
+    setSelectedBodyLine(null);
     setFocusRequest({
       kind: 'panel-header',
       panelId,
@@ -470,6 +510,7 @@ function EegEncoderDetailChart() {
   const requestFocusBodyLine = useCallback(
     (panelId: string, lineIndex: number) => {
       setSelectedPanelId(panelId);
+      setSelectedBodyLine({ panelId, lineIndex });
       setFocusRequest({
         kind: 'panel-body-line',
         panelId,
@@ -494,20 +535,87 @@ function EegEncoderDetailChart() {
 
   /* ------------------ override mutators (panels) -----------------------*/
 
+  /**
+   * Strip empty fields from a `PanelOverride` so we don't leave stale
+   * `lineOverrides: {}` (etc.) lying around after a reset.
+   */
+  function pruneOverride(o: PanelOverride): PanelOverride {
+    const next: PanelOverride = { ...o };
+    if (next.lineOverrides) {
+      const pruned: LineOverrideMap = {};
+      for (const [k, v] of Object.entries(next.lineOverrides)) {
+        if (v && Object.keys(v).length > 0) pruned[k] = v;
+      }
+      if (Object.keys(pruned).length === 0) {
+        delete next.lineOverrides;
+      } else {
+        next.lineOverrides = pruned;
+      }
+    }
+    for (const key of Object.keys(next) as (keyof PanelOverride)[]) {
+      if (next[key] === undefined || next[key] === '') delete next[key];
+    }
+    return next;
+  }
+
   const updatePanelOverride = useCallback(
     (panelId: string, patch: Partial<PanelOverride>) => {
       setPanelOverrides((prev) => {
         const cur = prev[panelId] ?? {};
-        const next: PanelOverride = { ...cur, ...patch };
-        for (const key of Object.keys(next) as (keyof PanelOverride)[]) {
-          if (next[key] === undefined || next[key] === '') delete next[key];
-        }
+        const next = pruneOverride({ ...cur, ...patch });
         if (Object.keys(next).length === 0) {
           const { [panelId]: _drop, ...rest } = prev;
           void _drop;
           return rest;
         }
         return { ...prev, [panelId]: next };
+      });
+    },
+    [],
+  );
+
+  /**
+   * Patch the per-line styling for a single body line. Pass `null`
+   * for `patch` to drop the entire line override (the line falls back
+   * to panel defaults).
+   */
+  const updateLineOverride = useCallback(
+    (
+      panelId: string,
+      lineIndex: number,
+      patch: Partial<LineOverride> | null,
+    ) => {
+      setPanelOverrides((prev) => {
+        const cur = prev[panelId] ?? {};
+        const lineKey = String(lineIndex);
+        const curLines = cur.lineOverrides ?? {};
+        const curLine = curLines[lineKey] ?? {};
+        let nextLine: LineOverride;
+        if (patch === null) {
+          nextLine = {};
+        } else {
+          nextLine = { ...curLine, ...patch };
+          for (const key of Object.keys(nextLine) as (keyof LineOverride)[]) {
+            if (nextLine[key] === undefined || nextLine[key] === '')
+              delete nextLine[key];
+          }
+        }
+        const nextLines: LineOverrideMap = { ...curLines };
+        if (Object.keys(nextLine).length === 0) {
+          delete nextLines[lineKey];
+        } else {
+          nextLines[lineKey] = nextLine;
+        }
+        const nextOverride = pruneOverride({
+          ...cur,
+          lineOverrides: nextLines,
+        });
+        if (Object.keys(nextOverride).length === 0) {
+          const { [panelId]: _drop, ...rest } = prev;
+          void _drop;
+          return rest;
+        }
+        return { ...prev, [panelId]: nextOverride };
       });
     },
     [],
@@ -992,7 +1100,10 @@ function EegEncoderDetailChart() {
             <PanelEditor
               panels={resolvedPanels}
               selectedId={selectedPanelId}
-              onSelect={setSelectedPanelId}
+              onSelect={(id) => {
+                setSelectedPanelId(id);
+                setSelectedBodyLine(null);
+              }}
               overrides={panelOverrides}
               defaults={{ headerSize, bodySize, lineSpacing: 1.5 }}
               onPatch={(patch) =>
@@ -1001,6 +1112,13 @@ function EegEncoderDetailChart() {
               onReset={() => resetPanel(selectedPanelId)}
               onResetAll={resetAllPanels}
               focusRequest={focusRequest}
+              selectedBodyLine={selectedBodyLine}
+              onPatchLine={(idx, patch) =>
+                updateLineOverride(selectedPanelId, idx, patch)
+              }
+              onResetLine={(idx) =>
+                updateLineOverride(selectedPanelId, idx, null)
+              }
             />
           </ControlGroup>
 
@@ -1231,9 +1349,18 @@ function EegEncoderDetailChart() {
                   bodyAlign={ov?.bodyAlign ?? 'center'}
                   bodyAutoFit={ov?.bodyAutoFit ?? false}
                   isSelected={selectedPanelId === p.id}
-                  onSelect={() => setSelectedPanelId(p.id)}
+                  onSelect={() => {
+                    setSelectedPanelId(p.id);
+                    setSelectedBodyLine(null);
+                  }}
                   onSelectHeader={() => requestFocusHeader(p.id)}
                   onSelectBodyLine={(idx) => requestFocusBodyLine(p.id, idx)}
+                  lineOverrides={ov?.lineOverrides}
+                  highlightedLineIndex={
+                    selectedBodyLine?.panelId === p.id
+                      ? selectedBodyLine.lineIndex
+                      : undefined
+                  }
                 />
               );
             })}
@@ -1372,6 +1499,10 @@ interface PanelProps {
   onSelectHeader?: () => void;
   /** Click on a body line — selects panel + focuses body textarea on line. */
   onSelectBodyLine?: (lineIndex: number) => void;
+  /** Per-line styling overrides keyed by line index (string). */
+  lineOverrides?: LineOverrideMap;
+  /** Highlight the currently-selected body line in the preview. */
+  highlightedLineIndex?: number;
 }
 
 function Panel({
@@ -1390,11 +1521,26 @@ function Panel({
   onSelect,
   onSelectHeader,
   onSelectBodyLine,
+  lineOverrides,
+  highlightedLineIndex,
 }: PanelProps) {
   const style = PALETTE[spec.category];
   const headerLines = spec.header.split('\n').length;
   const headerLineH = headerSize * 1.15;
-  const headerH = headerLines * headerLineH + 14;
+
+  // Header layout: the title is top-aligned (first baseline at
+  // `headerTopPad + headerSize`, no vertical centring), and the
+  // bottom of the header strip — i.e. the y of the divider line — sits
+  // a fixed `headerBottomPad` below the last text baseline. This keeps
+  // the gap between title and body identical regardless of whether the
+  // title is one line or two (previously a vertical-centring trick
+  // collapsed the gap above the first line into a single line, while
+  // leaving an extra line-height of empty space *below* the title for
+  // multi-line headers — the "phantom blank line" the user reported).
+  const headerTopPad = 6;
+  const headerBottomPad = 6;
+  const headerH =
+    headerTopPad + headerLines * headerLineH + headerBottomPad;
 
   // Each body line gets its own <foreignObject data-latex>. The export
   // pipeline (replaceLatexForeignObjects in lib/export.ts) replaces
@@ -1402,9 +1548,32 @@ function Panel({
   // `data-latex` is non-empty. Wrapping multiple lines in a single
   // foreignObject would leave the body un-replaced, producing the
   // "formulas exported as plain letters" bug.
-  const lineHeight = bodySize * lineSpacing;
   const emptyLineHeight = bodySize * (lineSpacing * 0.4);
   const bodyTopPad = 6;
+
+  /**
+   * Resolve final per-line style by merging the line override (if any)
+   * with the panel-level defaults supplied through props. Out-of-bounds
+   * line indices are silently ignored.
+   */
+  function lineStyleAt(idx: number): {
+    size: number;
+    weight: number;
+    italic: boolean;
+    color: string;
+    align: Align;
+    dx: number;
+  } {
+    const ov = lineOverrides?.[String(idx)];
+    return {
+      size: ov?.size ?? bodySize,
+      weight: ov?.weight ?? 400,
+      italic: ov?.italic ?? false,
+      color: ov?.color ?? '#1c1c1c',
+      align: ov?.align ?? bodyAlign,
+      dx: ov?.dx ?? 0,
+    };
+  }
 
   const bodyLayout = useMemo(() => {
     // Body lines start immediately below the header divider (top-aligned).
@@ -1413,8 +1582,11 @@ function Panel({
     // body look like it had a phantom blank line above the first line.
     const offset = headerH + bodyTopPad;
     return spec.body.reduce<{ line: string; y: number; h: number }[]>(
-      (acc, line) => {
-        const lh = line ? lineHeight : emptyLineHeight;
+      (acc, line, idx) => {
+        const ov = lineOverrides?.[String(idx)];
+        const sizeForLine = ov?.size ?? bodySize;
+        const lhFull = sizeForLine * lineSpacing;
+        const lh = line ? lhFull : emptyLineHeight;
         const prev = acc[acc.length - 1];
         const ny = prev ? prev.y + prev.h : offset;
         acc.push({ line, y: ny, h: lh });
@@ -1422,7 +1594,14 @@ function Panel({
       },
       [],
     );
-  }, [spec.body, headerH, lineHeight, emptyLineHeight]);
+  }, [
+    spec.body,
+    headerH,
+    bodySize,
+    lineSpacing,
+    emptyLineHeight,
+    lineOverrides,
+  ]);
 
   return (
     <g
@@ -1462,7 +1641,7 @@ function Panel({
       <PanelHeaderText
         text={spec.header}
         panelW={w}
-        y={6 + headerSize}
+        y={headerTopPad + headerSize}
         fontSize={headerSize}
         color={style.edge}
         lineHeight={headerLineH}
@@ -1471,39 +1650,65 @@ function Panel({
       />
       <line
         x1={12}
-        y1={headerH + 4}
+        y1={headerH}
         x2={w - 12}
-        y2={headerH + 4}
+        y2={headerH}
         stroke={style.edge}
         strokeOpacity={0.25}
         strokeWidth={0.8}
       />
-      {bodyLayout.map((item, i) =>
-        item.line ? (
-          <foreignObject
-            key={i}
-            x={6}
-            y={item.y}
-            width={w - 12}
-            height={item.h}
-            data-latex={item.line}
-            data-latex-font-size={bodySize}
-            data-latex-align={bodyAlign}
-            data-latex-auto-fit={bodyAutoFit ? '1' : '0'}
-          >
-            <LatexLine
-              text={item.line}
-              fontSize={bodySize}
-              color="#1c1c1c"
-              align={bodyAlign}
-              autoFit={bodyAutoFit}
-              onClick={
-                onSelectBodyLine ? () => onSelectBodyLine(i) : undefined
-              }
-            />
-          </foreignObject>
-        ) : null,
-      )}
+      {bodyLayout.map((item, i) => {
+        if (!item.line) return null;
+        const ls = lineStyleAt(i);
+        const isHighlighted = highlightedLineIndex === i;
+        return (
+          <g key={i}>
+            {isHighlighted ? (
+              <rect
+                data-export="false"
+                x={4}
+                y={item.y - 1}
+                width={w - 8}
+                height={item.h + 2}
+                rx={3}
+                ry={3}
+                fill="#5b8def"
+                fillOpacity={0.08}
+                stroke="#5b8def"
+                strokeOpacity={0.55}
+                strokeDasharray="3 2"
+                strokeWidth={0.8}
+              />
+            ) : null}
+            <foreignObject
+              x={6 + ls.dx}
+              y={item.y}
+              width={w - 12}
+              height={item.h}
+              data-latex={item.line}
+              data-latex-font-size={ls.size}
+              data-latex-align={ls.align}
+              data-latex-auto-fit={bodyAutoFit ? '1' : '0'}
+              data-latex-font-weight={ls.weight}
+              data-latex-font-style={ls.italic ? 'italic' : 'normal'}
+              data-latex-color={ls.color}
+            >
+              <LatexLine
+                text={item.line}
+                fontSize={ls.size}
+                color={ls.color}
+                fontWeight={ls.weight}
+                fontStyle={ls.italic ? 'italic' : 'normal'}
+                align={ls.align}
+                autoFit={bodyAutoFit}
+                onClick={
+                  onSelectBodyLine ? () => onSelectBodyLine(i) : undefined
+                }
+              />
+            </foreignObject>
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -1537,8 +1742,13 @@ function PanelHeaderText({
   onClick,
 }: PanelHeaderTextProps) {
   const lines = text.split('\n');
-  const totalH = lines.length * lineHeight;
-  const startY = y + (lineHeight - totalH) / 2;
+  // `y` is the first-line baseline. Subsequent lines stack downward by
+  // `lineHeight` via the `dy` on each `<tspan>`. We deliberately do NOT
+  // re-centre on lines.length here — that's the caller's job. Centering
+  // on multi-line headers caused the "phantom blank line" bug because
+  // headerH grew by a full line-height while the text only descended by
+  // half a line-height, leaving an unaccounted gap below the title.
+  const startY = y;
   const x =
     align === 'left' ? 12 : align === 'right' ? panelW - 12 : panelW / 2;
   const anchor =
@@ -1713,6 +1923,127 @@ function Legend({ categories }: { categories: Category[] }) {
   );
 }
 
+/* ----------------------- line-style sub-section -----------------------*/
+
+interface LineStyleSubsectionProps {
+  panelId: string;
+  lineIndex: number;
+  override: LineOverride;
+  panelDefaults: { size: number; align: Align };
+  onPatch: (patch: Partial<LineOverride>) => void;
+  onReset: () => void;
+}
+
+/**
+ * Per-line styling controls. Rendered inside `PanelEditor` when the
+ * user has clicked a body line in the preview. Mutations go through
+ * `onPatch` / `onReset`, which write to the panel's `lineOverrides`
+ * map keyed by `String(lineIndex)`.
+ */
+function LineStyleSubsection({
+  panelId,
+  lineIndex,
+  override,
+  panelDefaults,
+  onPatch,
+  onReset,
+}: LineStyleSubsectionProps) {
+  void panelId;
+  const size = override.size ?? panelDefaults.size;
+  const weight = override.weight ?? 400;
+  const italic = override.italic ?? false;
+  const color = override.color ?? '#1c1c1c';
+  const align = override.align ?? panelDefaults.align;
+  const dx = override.dx ?? 0;
+  const isOverridden = Object.keys(override).length > 0;
+  return (
+    <div className="rounded border border-accent/40 bg-accent/5 p-2">
+      <div className="mb-2 flex items-center justify-between text-[11px] text-ink-100">
+        <span className="font-medium">
+          选中行样式（第 {lineIndex + 1} 行）
+        </span>
+        <button
+          type="button"
+          disabled={!isOverridden}
+          onClick={onReset}
+          className="rounded border border-ink-600 bg-ink-800 px-1.5 py-0.5 text-[10px] text-ink-100 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          恢复该行默认值
+        </button>
+      </div>
+      <div className="space-y-2">
+        <NumberSlider
+          label="字号（覆盖正文字号）"
+          value={size}
+          min={5}
+          max={28}
+          step={0.5}
+          onChange={(v) =>
+            onPatch({
+              size: v === panelDefaults.size ? undefined : v,
+            })
+          }
+        />
+        <Select
+          label="对齐（覆盖正文对齐）"
+          value={align}
+          options={ALIGN_OPTIONS}
+          onChange={(v) =>
+            onPatch({ align: v === panelDefaults.align ? undefined : v })
+          }
+        />
+        <div className="flex gap-3">
+          <Toggle
+            label="加粗"
+            checked={weight >= 600}
+            onChange={(v) =>
+              onPatch({ weight: v ? 700 : undefined })
+            }
+          />
+          <Toggle
+            label="斜体"
+            checked={italic}
+            onChange={(v) => onPatch({ italic: v ? true : undefined })}
+          />
+        </div>
+        <label className="flex flex-col gap-1 text-xs text-ink-200">
+          <span>颜色</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => onPatch({ color: e.target.value })}
+              className="h-7 w-10 rounded border border-ink-600 bg-ink-800"
+            />
+            <input
+              type="text"
+              value={color}
+              onChange={(e) => onPatch({ color: e.target.value })}
+              spellCheck={false}
+              className="h-7 flex-1 rounded border border-ink-600 bg-ink-800 px-2 font-mono text-[11px] text-ink-50 focus:border-accent focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => onPatch({ color: undefined })}
+              className="rounded border border-ink-600 bg-ink-800 px-1.5 py-0.5 text-[10px] text-ink-200 hover:bg-ink-700"
+            >
+              重置
+            </button>
+          </div>
+        </label>
+        <NumberSlider
+          label="水平偏移 dx"
+          value={dx}
+          min={-200}
+          max={200}
+          step={1}
+          onChange={(v) => onPatch({ dx: v === 0 ? undefined : v })}
+        />
+      </div>
+    </div>
+  );
+}
+
 /* --------------------------- panel editor -----------------------------*/
 
 interface PanelEditorProps {
@@ -1738,6 +2069,10 @@ interface PanelEditorProps {
         nonce: number;
       }
     | null;
+  /** Currently-styled body line, or null if none. */
+  selectedBodyLine: { panelId: string; lineIndex: number } | null;
+  onPatchLine: (lineIndex: number, patch: Partial<LineOverride>) => void;
+  onResetLine: (lineIndex: number) => void;
 }
 
 function PanelEditor({
@@ -1750,6 +2085,9 @@ function PanelEditor({
   onReset,
   onResetAll,
   focusRequest,
+  selectedBodyLine,
+  onPatchLine,
+  onResetLine,
 }: PanelEditorProps) {
   const override = overrides[selectedId];
   const selected = panels.find((p) => p.id === selectedId) ?? panels[0];
@@ -1849,6 +2187,21 @@ function PanelEditor({
         description="每行一条；留空行表示视觉间隔。$...$ 内为 KaTeX 公式。点击预览图任意一行可直接定位到该行。"
         inputRef={bodyRef}
       />
+      {selectedBodyLine && selectedBodyLine.panelId === selectedId ? (
+        <LineStyleSubsection
+          panelId={selectedId}
+          lineIndex={selectedBodyLine.lineIndex}
+          override={
+            override?.lineOverrides?.[String(selectedBodyLine.lineIndex)] ?? {}
+          }
+          panelDefaults={{
+            size: bodySize,
+            align: bodyAlign,
+          }}
+          onPatch={(patch) => onPatchLine(selectedBodyLine.lineIndex, patch)}
+          onReset={() => onResetLine(selectedBodyLine.lineIndex)}
+        />
+      ) : null}
       <Select
         label="正文对齐"
         value={bodyAlign}
