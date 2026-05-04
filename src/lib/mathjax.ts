@@ -149,12 +149,25 @@ function wrapText(text: string): string {
 }
 
 function escapeForText(s: string): string {
-  // Order matters: backslashes first so we don't double-escape later
-  // ones we introduce.
+  // Step 1: de-escape common LaTeX-style escape sequences the user may
+  // have typed in body text (e.g. `\%` to mean a literal `%`). Without
+  // this, the live preview (KaTeX, which renders plain text as-is)
+  // shows the literal `\%` while the exported SVG would route through
+  // MathJax and emit a giant `<rect data-background>` error glyph.
+  // De-escaping here makes both pipelines agree and avoids the error.
+  s = s.replace(/\\([%&$#_{}])/g, '$1');
+  // Step 2: escape characters that have meaning in TeX text mode so
+  // they reach MathJax as literal glyphs. Lone backslashes / carets /
+  // tildes are dropped because MathJax `mtext` does not reliably
+  // accept `\textbackslash` / `\textasciicircum` / `\textasciitilde`
+  // (the textcomp package defines them as math-mode commands), and
+  // generating them would re-introduce the same `<rect data-background>`
+  // black-bar regression. Users who really need a literal backslash
+  // can write `$\backslash$` instead.
   return s
-    .replace(/\\/g, '\\textbackslash ')
+    .replace(/\\/g, '')
     .replace(/[{}]/g, '\\$&')
     .replace(/[#$&%_]/g, '\\$&')
-    .replace(/\^/g, '\\textasciicircum ')
-    .replace(/~/g, '\\textasciitilde ');
+    .replace(/\^/g, ' ')
+    .replace(/~/g, ' ');
 }
