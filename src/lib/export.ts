@@ -183,6 +183,19 @@ export async function replaceLatexForeignObjects(svg: SVGSVGElement): Promise<vo
       // The MathJax style attribute uses HTML units like `vertical-align`
       // that confuse strict SVG renderers; strip it.
       inner.removeAttribute('style');
+      // MathJax inserts an oversized `<rect data-background>` around any
+      // `<merror>` node it produces (its hit-test target for tooltip /
+      // error display). The rect has no fill attribute so SVG defaults
+      // it to solid black, which renders as a giant horizontal bar in
+      // the exported figure. We surface a graceful warning in the
+      // console instead of leaking a 21000×950 black rectangle.
+      const errorRects = inner.querySelectorAll('rect[data-background]');
+      if (errorRects.length) {
+        console.warn(
+          `[export] MathJax error rendering "${latex}" — error background stripped from output.`,
+        );
+        errorRects.forEach((r) => r.remove());
+      }
       g.appendChild(document.importNode(inner, true));
       fo.replaceWith(g);
     }
