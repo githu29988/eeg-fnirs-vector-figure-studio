@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { FigureFrame } from '../../components/FigureFrame';
 import { ChartShell } from '../../components/ChartShell';
 import {
@@ -23,6 +30,21 @@ type Category =
   | 'gate'
   | 'output';
 
+type Align = 'left' | 'center' | 'right';
+type EdgeStyle = 'solid' | 'dashed' | 'dotted';
+
+const ALIGN_OPTIONS: ReadonlyArray<{ value: Align; label: string }> = [
+  { value: 'left', label: '左对齐' },
+  { value: 'center', label: '居中' },
+  { value: 'right', label: '右对齐' },
+];
+
+const EDGE_STYLE_OPTIONS: ReadonlyArray<{ value: EdgeStyle; label: string }> = [
+  { value: 'solid', label: '实线' },
+  { value: 'dashed', label: '虚线' },
+  { value: 'dotted', label: '点线' },
+];
+
 interface PanelSpec {
   id: string;
   col: number;
@@ -43,6 +65,7 @@ interface PanelSpec {
  * panel independently without touching the underlying preset.
  */
 interface PanelOverride {
+  /** Replace the header text (supports `\n` for multi-line). */
   header?: string;
   /** Newline-delimited lines (one body line per `\n`). */
   bodyText?: string;
@@ -50,6 +73,18 @@ interface PanelOverride {
   bodySize?: number;
   /** Multiplier on `bodySize` for line spacing (default 1.5). */
   lineSpacing?: number;
+  headerAlign?: Align;
+  bodyAlign?: Align;
+  /** When true, body lines wider than the panel are scaled to fit. */
+  bodyAutoFit?: boolean;
+  /** Override the slot width (px). Defaults to global panel width. */
+  width?: number;
+  /** Override the slot height (px). Defaults to global panel height
+   *  (or 2× row spacing for `rowSpan: 2`). */
+  height?: number;
+  /** Position offsets relative to the grid slot (px). */
+  dx?: number;
+  dy?: number;
 }
 
 type PanelOverrideMap = Record<string, PanelOverride>;
@@ -66,10 +101,62 @@ interface EdgeSpec {
   fromYFrac?: number;
   toYFrac?: number;
   category: Category;
-  style?: 'solid' | 'dashed' | 'dotted';
+  style?: EdgeStyle;
   thickness?: number;
   /** Optional inline label rendered next to the arrow midpoint. */
   label?: string;
+}
+
+interface EdgeOverride {
+  hidden?: boolean;
+  style?: EdgeStyle;
+  thickness?: number;
+  /** Replace label text. Empty string clears the label. */
+  label?: string;
+  /** Endpoint y-fraction overrides (0..1). */
+  fromYFrac?: number;
+  toYFrac?: number;
+  /** Endpoint pixel offsets (added on top of computed anchor points). */
+  fromDx?: number;
+  fromDy?: number;
+  toDx?: number;
+  toDy?: number;
+  /** Label offset relative to the midpoint (px). */
+  labelDx?: number;
+  labelDy?: number;
+}
+
+type EdgeOverrideMap = Record<string, EdgeOverride>;
+
+interface Annotation {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  fontSize: number;
+  color: string;
+  align: Align;
+  bold?: boolean;
+  italic?: boolean;
+}
+
+/** Persisted on-disk / in-localStorage config snapshot. */
+interface SavedConfig {
+  version: 1;
+  global: {
+    colSpacing: number;
+    rowSpacing: number;
+    panelWidth: number;
+    panelHeight: number;
+    headerSize: number;
+    bodySize: number;
+    showLegend: boolean;
+    showSubtitle: boolean;
+  };
+  panelOverrides: PanelOverrideMap;
+  edgeOverrides: EdgeOverrideMap;
+  annotations: Annotation[];
 }
 
 /* ------------------------- color palette -------------------------------*/
@@ -304,6 +391,45 @@ const GAT_CMC_NET_EDGES: EdgeSpec[] = [
   },
 ];
 
+/* -------------------------- localStorage -------------------------------*/
+
+const STORAGE_KEY = 'arch-overall-saved-configs-v1';
+type SavedConfigsMap = Record<string, SavedConfig>;
+
+function loadStoredConfigs(): SavedConfigsMap {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as SavedConfigsMap;
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function persistConfigs(map: SavedConfigsMap) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // Quota exceeded or storage unavailable — silently no-op.
+  }
+}
+
+function downloadJson(filename: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /* --------------------------- chart impl --------------------------------*/
 
 function ArchitectureOverallChart() {
@@ -315,18 +441,33 @@ function ArchitectureOverallChart() {
   const [bodySize, setBodySize] = useState(11);
   const [showLegend, setShowLegend] = useState(true);
   const [showSubtitle, setShowSubtitle] = useState(true);
-  const [overrides, setOverrides] = useState<PanelOverrideMap>({});
+
+  const [panelOverrides, setPanelOverrides] = useState<PanelOverrideMap>({});
+  const [edgeOverrides, setEdgeOverrides] = useState<EdgeOverrideMap>({});
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+
   const [selectedPanelId, setSelectedPanelId] = useState<string>(
     GAT_CMC_NET_PANELS[0].id,
   );
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string>(
+    GAT_CMC_NET_EDGES[0].id,
+  );
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<
+    string | null
+  >(null);
+
+  const [savedConfigs, setSavedConfigs] =
+    useState<SavedConfigsMap>(() => loadStoredConfigs());
+
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const updateOverride = useCallback(
+  /* ------------------ override mutators (panels) -----------------------*/
+
+  const updatePanelOverride = useCallback(
     (panelId: string, patch: Partial<PanelOverride>) => {
-      setOverrides((prev) => {
+      setPanelOverrides((prev) => {
         const cur = prev[panelId] ?? {};
         const next: PanelOverride = { ...cur, ...patch };
-        // Drop undefined / empty fields so the merge picks defaults.
         for (const key of Object.keys(next) as (keyof PanelOverride)[]) {
           if (next[key] === undefined || next[key] === '') delete next[key];
         }
@@ -342,7 +483,7 @@ function ArchitectureOverallChart() {
   );
 
   const resetPanel = useCallback((panelId: string) => {
-    setOverrides((prev) => {
+    setPanelOverrides((prev) => {
       if (!(panelId in prev)) return prev;
       const { [panelId]: _drop, ...rest } = prev;
       void _drop;
@@ -350,7 +491,170 @@ function ArchitectureOverallChart() {
     });
   }, []);
 
-  const resetAllOverrides = useCallback(() => setOverrides({}), []);
+  const resetAllPanels = useCallback(() => setPanelOverrides({}), []);
+
+  /* ------------------ override mutators (edges) ------------------------*/
+
+  const updateEdgeOverride = useCallback(
+    (edgeId: string, patch: Partial<EdgeOverride>) => {
+      setEdgeOverrides((prev) => {
+        const cur = prev[edgeId] ?? {};
+        const next: EdgeOverride = { ...cur, ...patch };
+        for (const key of Object.keys(next) as (keyof EdgeOverride)[]) {
+          if (next[key] === undefined) delete next[key];
+        }
+        if (Object.keys(next).length === 0) {
+          const { [edgeId]: _drop, ...rest } = prev;
+          void _drop;
+          return rest;
+        }
+        return { ...prev, [edgeId]: next };
+      });
+    },
+    [],
+  );
+
+  const resetEdge = useCallback((edgeId: string) => {
+    setEdgeOverrides((prev) => {
+      if (!(edgeId in prev)) return prev;
+      const { [edgeId]: _drop, ...rest } = prev;
+      void _drop;
+      return rest;
+    });
+  }, []);
+
+  const resetAllEdges = useCallback(() => setEdgeOverrides({}), []);
+
+  /* ----------------------- annotations ---------------------------------*/
+
+  const addAnnotation = useCallback(() => {
+    const id = `ann-${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
+    setAnnotations((prev) => {
+      // Place new annotations near the top-left of the canvas, offset
+      // slightly so successive adds don't perfectly stack.
+      const stagger = (prev.length % 5) * 14;
+      const ann: Annotation = {
+        id,
+        text: 'New annotation',
+        x: 60 + stagger,
+        y: 60 + stagger,
+        width: 160,
+        fontSize: 11,
+        color: '#1c1c1c',
+        align: 'left',
+      };
+      return [...prev, ann];
+    });
+    setSelectedAnnotationId(id);
+  }, []);
+
+  const updateAnnotation = useCallback(
+    (id: string, patch: Partial<Annotation>) => {
+      setAnnotations((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      );
+    },
+    [],
+  );
+
+  const removeAnnotation = useCallback((id: string) => {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+    setSelectedAnnotationId((cur) => (cur === id ? null : cur));
+  }, []);
+
+  /* -------------------- save / load configs ----------------------------*/
+
+  const buildCurrentConfig = useCallback((): SavedConfig => {
+    return {
+      version: 1,
+      global: {
+        colSpacing,
+        rowSpacing,
+        panelWidth,
+        panelHeight,
+        headerSize,
+        bodySize,
+        showLegend,
+        showSubtitle,
+      },
+      panelOverrides,
+      edgeOverrides,
+      annotations,
+    };
+  }, [
+    colSpacing,
+    rowSpacing,
+    panelWidth,
+    panelHeight,
+    headerSize,
+    bodySize,
+    showLegend,
+    showSubtitle,
+    panelOverrides,
+    edgeOverrides,
+    annotations,
+  ]);
+
+  const applyConfig = useCallback((cfg: SavedConfig) => {
+    if (!cfg || cfg.version !== 1) return;
+    setColSpacing(cfg.global.colSpacing);
+    setRowSpacing(cfg.global.rowSpacing);
+    setPanelWidth(cfg.global.panelWidth);
+    setPanelHeight(cfg.global.panelHeight);
+    setHeaderSize(cfg.global.headerSize);
+    setBodySize(cfg.global.bodySize);
+    setShowLegend(cfg.global.showLegend);
+    setShowSubtitle(cfg.global.showSubtitle);
+    setPanelOverrides(cfg.panelOverrides ?? {});
+    setEdgeOverrides(cfg.edgeOverrides ?? {});
+    setAnnotations(cfg.annotations ?? []);
+  }, []);
+
+  const saveConfigToSlot = useCallback(
+    (name: string) => {
+      if (!name.trim()) return;
+      setSavedConfigs((prev) => {
+        const next = { ...prev, [name]: buildCurrentConfig() };
+        persistConfigs(next);
+        return next;
+      });
+    },
+    [buildCurrentConfig],
+  );
+
+  const deleteConfigSlot = useCallback((name: string) => {
+    setSavedConfigs((prev) => {
+      if (!(name in prev)) return prev;
+      const { [name]: _drop, ...rest } = prev;
+      void _drop;
+      persistConfigs(rest);
+      return rest;
+    });
+  }, []);
+
+  const exportConfigToFile = useCallback(() => {
+    downloadJson('architecture-overall.config.json', buildCurrentConfig());
+  }, [buildCurrentConfig]);
+
+  const importConfigFromFile = useCallback(
+    (file: File) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const cfg = JSON.parse(String(reader.result)) as SavedConfig;
+          applyConfig(cfg);
+        } catch {
+          // ignored — caller surfaces the error via UI state
+        }
+      };
+      reader.readAsText(file);
+    },
+    [applyConfig],
+  );
+
+  /* ----------------------- resolved data -------------------------------*/
 
   /**
    * Resolve a panel spec by merging the baseline `PanelSpec` with any
@@ -359,29 +663,37 @@ function ArchitectureOverallChart() {
    */
   const resolvedPanels = useMemo<PanelSpec[]>(() => {
     return GAT_CMC_NET_PANELS.map((p) => {
-      const ov = overrides[p.id];
+      const ov = panelOverrides[p.id];
       if (!ov) return p;
       const header = ov.header ?? p.header;
-      const body = ov.bodyText !== undefined ? ov.bodyText.split('\n') : p.body;
+      const body =
+        ov.bodyText !== undefined ? ov.bodyText.split('\n') : p.body;
       return { ...p, header, body };
     });
-  }, [overrides]);
+  }, [panelOverrides]);
 
-  // Figure layout.
-  //
-  // Coordinates are split into two groups:
-  //   - "internal" (relative to the FigureFrame children area, which is
-  //     translated down by `framePadTop` to leave room for the title)
-  //   - "viewport" (the parent <svg> coordinate, including the title
-  //     band at the top and caption band at the bottom)
-  //
-  // The FigureFrame defaults (padTop=28 for title, padBottom=32 for
-  // caption) match what we need; we just have to account for them when
-  // computing the SVG height so the legend and caption never overlap.
+  const visibleEdges = useMemo<EdgeSpec[]>(() => {
+    return GAT_CMC_NET_EDGES.filter(
+      (e) => !edgeOverrides[e.id]?.hidden,
+    ).map((e) => {
+      const o = edgeOverrides[e.id];
+      if (!o) return e;
+      return {
+        ...e,
+        style: o.style ?? e.style,
+        thickness: o.thickness ?? e.thickness,
+        label: o.label !== undefined ? o.label : e.label,
+        fromYFrac: o.fromYFrac ?? e.fromYFrac,
+        toYFrac: o.toYFrac ?? e.toYFrac,
+      };
+    });
+  }, [edgeOverrides]);
+
+  // Figure layout. See the original PR #3 commentary for the coordinate
+  // system; only the panel slot map adds per-panel size / position
+  // overrides on top of the baseline grid.
   const margin = { right: 48, left: 48 };
   const colCount = 6;
-  // Match the FigureFrame defaults (28 for title band, 32 for caption
-  // band when caption is set, 0 otherwise).
   const framePadTop = 28;
   const framePadBottom = showSubtitle ? 32 : 0;
   const panelTop = 8;
@@ -395,22 +707,41 @@ function ArchitectureOverallChart() {
   const legendY = panelsBottom + legendGap;
 
   const panelMap = useMemo(() => {
-    const out = new Map<string, { x: number; y: number; w: number; h: number; spec: PanelSpec }>();
+    const out = new Map<
+      string,
+      { x: number; y: number; w: number; h: number; spec: PanelSpec }
+    >();
     for (const p of resolvedPanels) {
-      const x = margin.left + p.col * colSpacing;
-      let y: number;
-      let h: number;
+      const ov = panelOverrides[p.id];
+      const baseX = margin.left + p.col * colSpacing;
+      let baseY: number;
+      let baseH: number;
       if (p.rowSpan === 2) {
-        y = panelTop;
-        h = rowSpacing + panelHeight;
+        baseY = panelTop;
+        baseH = rowSpacing + panelHeight;
       } else {
-        y = panelTop + p.row * rowSpacing;
-        h = panelHeight;
+        baseY = panelTop + p.row * rowSpacing;
+        baseH = panelHeight;
       }
-      out.set(p.id, { x, y, w: panelWidth, h, spec: p });
+      const x = baseX + (ov?.dx ?? 0);
+      const y = baseY + (ov?.dy ?? 0);
+      const w = ov?.width ?? panelWidth;
+      const h = ov?.height ?? baseH;
+      out.set(p.id, { x, y, w, h, spec: p });
     }
     return out;
-  }, [resolvedPanels, colSpacing, rowSpacing, panelWidth, panelHeight, margin.left, panelTop]);
+  }, [
+    resolvedPanels,
+    panelOverrides,
+    colSpacing,
+    rowSpacing,
+    panelWidth,
+    panelHeight,
+    margin.left,
+    panelTop,
+  ]);
+
+  /* ----------------------- expert schema -------------------------------*/
 
   const expertSchema: ExpertSchema = [
     {
@@ -420,8 +751,8 @@ function ArchitectureOverallChart() {
           type: 'number',
           key: 'col',
           label: '列间距',
-          min: 140,
-          max: 240,
+          min: 100,
+          max: 320,
           step: 2,
           value: colSpacing,
           onChange: setColSpacing,
@@ -431,8 +762,8 @@ function ArchitectureOverallChart() {
           type: 'number',
           key: 'row',
           label: '行间距',
-          min: 160,
-          max: 320,
+          min: 140,
+          max: 360,
           step: 2,
           value: rowSpacing,
           onChange: setRowSpacing,
@@ -442,8 +773,8 @@ function ArchitectureOverallChart() {
           type: 'number',
           key: 'pw',
           label: '面板宽度',
-          min: 130,
-          max: 220,
+          min: 110,
+          max: 260,
           step: 2,
           value: panelWidth,
           onChange: setPanelWidth,
@@ -453,8 +784,8 @@ function ArchitectureOverallChart() {
           type: 'number',
           key: 'ph',
           label: '面板高度',
-          min: 100,
-          max: 180,
+          min: 90,
+          max: 220,
           step: 2,
           value: panelHeight,
           onChange: setPanelHeight,
@@ -469,8 +800,8 @@ function ArchitectureOverallChart() {
           type: 'number',
           key: 'hs',
           label: '标题字号',
-          min: 10,
-          max: 18,
+          min: 8,
+          max: 22,
           step: 0.5,
           value: headerSize,
           onChange: setHeaderSize,
@@ -480,8 +811,8 @@ function ArchitectureOverallChart() {
           type: 'number',
           key: 'bs',
           label: '正文字号',
-          min: 8,
-          max: 14,
+          min: 6,
+          max: 18,
           step: 0.5,
           value: bodySize,
           onChange: setBodySize,
@@ -492,11 +823,25 @@ function ArchitectureOverallChart() {
     {
       label: '显示',
       fields: [
-        { type: 'toggle', key: 'sub', label: '副标题', value: showSubtitle, onChange: setShowSubtitle },
-        { type: 'toggle', key: 'leg', label: '底部图例', value: showLegend, onChange: setShowLegend },
+        {
+          type: 'toggle',
+          key: 'sub',
+          label: '副标题',
+          value: showSubtitle,
+          onChange: setShowSubtitle,
+        },
+        {
+          type: 'toggle',
+          key: 'leg',
+          label: '底部图例',
+          value: showLegend,
+          onChange: setShowLegend,
+        },
       ],
     },
   ];
+
+  /* -------------------------- render -----------------------------------*/
 
   return (
     <ChartShell
@@ -507,7 +852,8 @@ function ArchitectureOverallChart() {
               id: 'gat-cmc',
               label: 'GAT-CMC-Net',
               hint: '出版级',
-              description: '完整带 KaTeX 公式与底部图例的整体架构图（清空所有模块覆盖）。',
+              description:
+                '完整带 KaTeX 公式与底部图例的整体架构图（清空所有自定义状态）。',
               apply: () => {
                 setColSpacing(180);
                 setRowSpacing(220);
@@ -517,7 +863,10 @@ function ArchitectureOverallChart() {
                 setBodySize(11);
                 setShowLegend(true);
                 setShowSubtitle(true);
-                resetAllOverrides();
+                resetAllPanels();
+                resetAllEdges();
+                setAnnotations([]);
+                setSelectedAnnotationId(null);
               },
             },
             {
@@ -574,38 +923,117 @@ function ArchitectureOverallChart() {
             <NumberSlider
               label="列间距"
               value={colSpacing}
-              min={140}
-              max={240}
+              min={100}
+              max={320}
               step={2}
               onChange={setColSpacing}
             />
             <NumberSlider
               label="行间距"
               value={rowSpacing}
-              min={160}
-              max={320}
+              min={140}
+              max={360}
               step={2}
               onChange={setRowSpacing}
             />
+            <NumberSlider
+              label="面板默认宽度"
+              value={panelWidth}
+              min={110}
+              max={260}
+              step={2}
+              onChange={setPanelWidth}
+            />
+            <NumberSlider
+              label="面板默认高度"
+              value={panelHeight}
+              min={90}
+              max={220}
+              step={2}
+              onChange={setPanelHeight}
+            />
           </ControlGroup>
+
           <ControlGroup
             label="模块编辑"
-            description="选择某一个模块，单独编辑其文字 / 字号 / 行距。改完即时生效，导出 SVG 同步。"
+            description="选择某一个模块，单独编辑其文字 / 字号 / 行距 / 对齐 / 尺寸 / 偏移。改完即时生效，导出 SVG 同步。"
           >
             <PanelEditor
               panels={resolvedPanels}
               selectedId={selectedPanelId}
               onSelect={setSelectedPanelId}
-              overrides={overrides}
+              overrides={panelOverrides}
               defaults={{ headerSize, bodySize, lineSpacing: 1.5 }}
-              onPatch={(patch) => updateOverride(selectedPanelId, patch)}
+              onPatch={(patch) =>
+                updatePanelOverride(selectedPanelId, patch)
+              }
               onReset={() => resetPanel(selectedPanelId)}
-              onResetAll={resetAllOverrides}
+              onResetAll={resetAllPanels}
             />
           </ControlGroup>
+
+          <ControlGroup
+            label="连接箭头"
+            description="选择某一条箭头，单独修改样式 / 颜色不可改但粗细 / 标签 / 端点位置 / 显示与隐藏。"
+          >
+            <EdgeEditor
+              edges={GAT_CMC_NET_EDGES}
+              panelMap={panelMap}
+              selectedId={selectedEdgeId}
+              onSelect={setSelectedEdgeId}
+              overrides={edgeOverrides}
+              onPatch={(patch) =>
+                updateEdgeOverride(selectedEdgeId, patch)
+              }
+              onReset={() => resetEdge(selectedEdgeId)}
+              onResetAll={resetAllEdges}
+            />
+          </ControlGroup>
+
+          <ControlGroup
+            label="自由批注"
+            description="在画布任意位置添加文本框；文本支持 $...$ KaTeX 公式。"
+          >
+            <AnnotationEditor
+              canvasW={W}
+              canvasH={H - framePadTop - framePadBottom}
+              annotations={annotations}
+              selectedId={selectedAnnotationId}
+              onSelect={setSelectedAnnotationId}
+              onAdd={addAnnotation}
+              onPatch={updateAnnotation}
+              onRemove={removeAnnotation}
+            />
+          </ControlGroup>
+
           <ControlGroup label="显示">
-            <Toggle label="副标题" checked={showSubtitle} onChange={setShowSubtitle} />
-            <Toggle label="底部图例" checked={showLegend} onChange={setShowLegend} />
+            <Toggle
+              label="副标题"
+              checked={showSubtitle}
+              onChange={setShowSubtitle}
+            />
+            <Toggle
+              label="底部图例"
+              checked={showLegend}
+              onChange={setShowLegend}
+            />
+          </ControlGroup>
+
+          <ControlGroup
+            label="配置管理"
+            description="把当前所有调节保存为命名配置 / 导出 JSON 文件 / 下次直接载入。"
+          >
+            <ConfigManager
+              savedConfigs={savedConfigs}
+              onSaveSlot={saveConfigToSlot}
+              onLoadSlot={(name) => {
+                const cfg = savedConfigs[name];
+                if (cfg) applyConfig(cfg);
+              }}
+              onDeleteSlot={deleteConfigSlot}
+              onExport={exportConfigToFile}
+              onImport={importConfigFromFile}
+            />
           </ControlGroup>
         </>
       }
@@ -613,10 +1041,10 @@ function ArchitectureOverallChart() {
         <p>
           多模态深度学习模型整体架构示意图。每个面板由标题 + 多行正文（支持
           KaTeX 公式）构成；箭头按通路类别着色，虚线表示跨模态对齐 / 耦合。
-          预设 <code>GAT-CMC-Net</code> 直接复刻同名模型的 Fig.2 出版级版式。
-          编辑 <code>architecture-overall/index.tsx</code> 中的
-          <code>GAT_CMC_NET_PANELS</code> / <code>GAT_CMC_NET_EDGES</code>
-          可适配其它架构。
+          Inspector 提供逐模块 / 逐箭头 / 自由批注的细颗粒控制，并支持本地
+          多 slot 命名保存以及 JSON 导入 / 导出。预设
+          <code> GAT-CMC-Net </code>
+          直接复刻同名模型的 Fig.2 出版级版式。
         </p>
       }
       figure={
@@ -652,10 +1080,11 @@ function ArchitectureOverallChart() {
 
           {/* edges */}
           <g>
-            {GAT_CMC_NET_EDGES.map((e) => {
+            {visibleEdges.map((e) => {
               const a = panelMap.get(e.from);
               const b = panelMap.get(e.to);
               if (!a || !b) return null;
+              const ov = edgeOverrides[e.id];
               const fromAnchor: Anchor = e.fromAnchor ?? 'right';
               const toAnchor: Anchor = e.toAnchor ?? 'left';
               const yFracFrom = e.fromYFrac ?? 0.5;
@@ -663,39 +1092,82 @@ function ArchitectureOverallChart() {
 
               const aPt = anchorPoint(a, fromAnchor, yFracFrom);
               const bPt = anchorPoint(b, toAnchor, yFracTo);
+              const fx = aPt.x + (ov?.fromDx ?? 0);
+              const fy = aPt.y + (ov?.fromDy ?? 0);
+              const tx = bPt.x + (ov?.toDx ?? 0);
+              const ty = bPt.y + (ov?.toDy ?? 0);
 
-              const style = e.style ?? 'solid';
+              const style: EdgeStyle = e.style ?? 'solid';
               const dash =
-                style === 'dashed' ? '6 4' : style === 'dotted' ? '2 4' : undefined;
+                style === 'dashed'
+                  ? '6 4'
+                  : style === 'dotted'
+                  ? '2 4'
+                  : undefined;
+
+              const labelText = e.label ?? '';
+              const labelDx = ov?.labelDx ?? 0;
+              const labelDy = ov?.labelDy ?? 0;
+              const isSelected = selectedEdgeId === e.id;
 
               return (
-                <g key={e.id}>
+                <g
+                  key={e.id}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    setSelectedEdgeId(e.id);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* invisible thick path for easier click hit */}
                   <path
-                    d={curvePath(aPt.x, aPt.y, bPt.x, bPt.y, fromAnchor, toAnchor)}
+                    data-export="false"
+                    d={curvePath(fx, fy, tx, ty, fromAnchor, toAnchor)}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={12}
+                  />
+                  <path
+                    d={curvePath(fx, fy, tx, ty, fromAnchor, toAnchor)}
                     fill="none"
                     stroke={PALETTE[e.category].edge}
                     strokeWidth={e.thickness ?? 1.6}
                     strokeDasharray={dash}
                     markerEnd={`url(#arch-arrow-${e.category})`}
                   />
-                  {e.label ? (
+                  {isSelected ? (
+                    <>
+                      <circle
+                        data-export="false"
+                        cx={fx}
+                        cy={fy}
+                        r={4}
+                        fill="#5b8def"
+                      />
+                      <circle
+                        data-export="false"
+                        cx={tx}
+                        cy={ty}
+                        r={4}
+                        fill="#5b8def"
+                      />
+                    </>
+                  ) : null}
+                  {labelText ? (
                     <foreignObject
-                      x={(aPt.x + bPt.x) / 2 + 6}
-                      y={(aPt.y + bPt.y) / 2 - 16}
-                      width={130}
+                      x={(fx + tx) / 2 + 6 + labelDx}
+                      y={(fy + ty) / 2 - 16 + labelDy}
+                      width={140}
                       height={36}
-                      data-latex={e.label}
+                      data-latex={labelText}
                       data-latex-font-size={10}
+                      data-latex-align="left"
                     >
-                      <div
-                        style={{
-                          fontFamily:
-                            'Inter, "Noto Sans SC", system-ui, sans-serif',
-                          fontSize: 10,
-                          color: PALETTE[e.category].text,
-                          lineHeight: 1.2,
-                        }}
-                        dangerouslySetInnerHTML={{ __html: renderInlineLatex(e.label) }}
+                      <LatexLine
+                        text={labelText}
+                        fontSize={10}
+                        color={PALETTE[e.category].text}
+                        align="left"
                       />
                     </foreignObject>
                   ) : null}
@@ -709,7 +1181,7 @@ function ArchitectureOverallChart() {
             {resolvedPanels.map((p) => {
               const slot = panelMap.get(p.id);
               if (!slot) return null;
-              const ov = overrides[p.id];
+              const ov = panelOverrides[p.id];
               return (
                 <Panel
                   key={p.id}
@@ -721,7 +1193,70 @@ function ArchitectureOverallChart() {
                   headerSize={ov?.headerSize ?? headerSize}
                   bodySize={ov?.bodySize ?? bodySize}
                   lineSpacing={ov?.lineSpacing ?? 1.5}
+                  headerAlign={ov?.headerAlign ?? 'center'}
+                  bodyAlign={ov?.bodyAlign ?? 'center'}
+                  bodyAutoFit={ov?.bodyAutoFit ?? false}
+                  isSelected={selectedPanelId === p.id}
+                  onSelect={() => setSelectedPanelId(p.id)}
                 />
+              );
+            })}
+          </g>
+
+          {/* annotations (on top of panels) */}
+          <g>
+            {annotations.map((a) => {
+              const lines = a.text.split('\n');
+              const lineH = a.fontSize * 1.4;
+              const totalH = Math.max(1, lines.length) * lineH;
+              const isSelected = selectedAnnotationId === a.id;
+              return (
+                <g
+                  key={a.id}
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    setSelectedAnnotationId(a.id);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* hit / selection rect (excluded from export) */}
+                  <rect
+                    data-export="false"
+                    x={a.x}
+                    y={a.y}
+                    width={a.width}
+                    height={totalH}
+                    fill="transparent"
+                    stroke={isSelected ? '#5b8def' : 'transparent'}
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
+                  />
+                  {lines.map((line, i) =>
+                    line ? (
+                      <foreignObject
+                        key={i}
+                        x={a.x}
+                        y={a.y + i * lineH}
+                        width={a.width}
+                        height={lineH}
+                        data-latex={line}
+                        data-latex-font-size={a.fontSize}
+                        data-latex-font-weight={a.bold ? 700 : 400}
+                        data-latex-font-style={a.italic ? 'italic' : 'normal'}
+                        data-latex-align={a.align}
+                      >
+                        <LatexLine
+                          text={line}
+                          fontSize={a.fontSize}
+                          color={a.color}
+                          fontWeight={a.bold ? 700 : 400}
+                          fontStyle={a.italic ? 'italic' : 'normal'}
+                          align={a.align}
+                        />
+                      </foreignObject>
+                    ) : null,
+                  )}
+                </g>
               );
             })}
           </g>
@@ -773,14 +1308,12 @@ function curvePath(
     (from === 'top' && to === 'bottom') || (from === 'bottom' && to === 'top');
 
   if (verticalPair) {
-    // Straight vertical line.
     return `M${x1},${y1} L${x2},${y2}`;
   }
   if (horizontalPair) {
     const dx = (x2 - x1) * 0.45;
     return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
   }
-  // Mixed-anchor: straight line.
   return `M${x1},${y1} L${x2},${y2}`;
 }
 
@@ -794,9 +1327,28 @@ interface PanelProps {
   bodySize: number;
   /** Multiplier on `bodySize` for the body line height. */
   lineSpacing: number;
+  headerAlign: Align;
+  bodyAlign: Align;
+  bodyAutoFit: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
 }
 
-function Panel({ spec, x, y, w, h, headerSize, bodySize, lineSpacing }: PanelProps) {
+function Panel({
+  spec,
+  x,
+  y,
+  w,
+  h,
+  headerSize,
+  bodySize,
+  lineSpacing,
+  headerAlign,
+  bodyAlign,
+  bodyAutoFit,
+  isSelected,
+  onSelect,
+}: PanelProps) {
   const style = PALETTE[spec.category];
   const headerLines = spec.header.split('\n').length;
   const headerLineH = headerSize * 1.15;
@@ -812,26 +1364,35 @@ function Panel({ spec, x, y, w, h, headerSize, bodySize, lineSpacing }: PanelPro
   const emptyLineHeight = bodySize * (lineSpacing * 0.4);
   const bodyTopPad = 6;
 
-  // Compute layout for body lines. Centre the whole body block
-  // vertically inside the available area below the header.
   const bodyLayout = useMemo(() => {
     const totalLineH = spec.body.reduce(
       (acc, ln) => acc + (ln ? lineHeight : emptyLineHeight),
       0,
     );
     const available = h - headerH - bodyTopPad - 4;
-    const offset = headerH + bodyTopPad + Math.max(0, (available - totalLineH) / 2);
-    return spec.body.reduce<{ line: string; y: number; h: number }[]>((acc, line) => {
-      const lh = line ? lineHeight : emptyLineHeight;
-      const prev = acc[acc.length - 1];
-      const y = prev ? prev.y + prev.h : offset;
-      acc.push({ line, y, h: lh });
-      return acc;
-    }, []);
+    const offset =
+      headerH + bodyTopPad + Math.max(0, (available - totalLineH) / 2);
+    return spec.body.reduce<{ line: string; y: number; h: number }[]>(
+      (acc, line) => {
+        const lh = line ? lineHeight : emptyLineHeight;
+        const prev = acc[acc.length - 1];
+        const ny = prev ? prev.y + prev.h : offset;
+        acc.push({ line, y: ny, h: lh });
+        return acc;
+      },
+      [],
+    );
   }, [spec.body, h, headerH, lineHeight, emptyLineHeight]);
 
   return (
-    <g transform={`translate(${x}, ${y})`}>
+    <g
+      transform={`translate(${x}, ${y})`}
+      onClick={(ev) => {
+        ev.stopPropagation();
+        onSelect();
+      }}
+      style={{ cursor: 'pointer' }}
+    >
       <rect
         x={0}
         y={0}
@@ -843,13 +1404,29 @@ function Panel({ spec, x, y, w, h, headerSize, bodySize, lineSpacing }: PanelPro
         stroke={style.edge}
         strokeWidth={1.4}
       />
+      {isSelected ? (
+        <rect
+          data-export="false"
+          x={-3}
+          y={-3}
+          width={w + 6}
+          height={h + 6}
+          rx={12}
+          ry={12}
+          fill="none"
+          stroke="#5b8def"
+          strokeWidth={1.5}
+          strokeDasharray="3 3"
+        />
+      ) : null}
       <PanelHeaderText
         text={spec.header}
-        x={w / 2}
+        panelW={w}
         y={6 + headerSize}
         fontSize={headerSize}
         color={style.edge}
         lineHeight={headerLineH}
+        align={headerAlign}
       />
       <line
         x1={12}
@@ -870,8 +1447,16 @@ function Panel({ spec, x, y, w, h, headerSize, bodySize, lineSpacing }: PanelPro
             height={item.h}
             data-latex={item.line}
             data-latex-font-size={bodySize}
+            data-latex-align={bodyAlign}
+            data-latex-auto-fit={bodyAutoFit ? '1' : '0'}
           >
-            <LatexLine text={item.line} fontSize={bodySize} color="#1c1c1c" />
+            <LatexLine
+              text={item.line}
+              fontSize={bodySize}
+              color="#1c1c1c"
+              align={bodyAlign}
+              autoFit={bodyAutoFit}
+            />
           </foreignObject>
         ) : null,
       )}
@@ -881,11 +1466,12 @@ function Panel({ spec, x, y, w, h, headerSize, bodySize, lineSpacing }: PanelPro
 
 interface PanelHeaderTextProps {
   text: string;
-  x: number;
+  panelW: number;
   y: number;
   fontSize: number;
   color: string;
   lineHeight: number;
+  align: Align;
 }
 
 /**
@@ -897,22 +1483,27 @@ interface PanelHeaderTextProps {
  */
 function PanelHeaderText({
   text,
-  x,
+  panelW,
   y,
   fontSize,
   color,
   lineHeight,
+  align,
 }: PanelHeaderTextProps) {
   const lines = text.split('\n');
   const totalH = lines.length * lineHeight;
   const startY = y + (lineHeight - totalH) / 2;
+  const x =
+    align === 'left' ? 12 : align === 'right' ? panelW - 12 : panelW / 2;
+  const anchor =
+    align === 'left' ? 'start' : align === 'right' ? 'end' : 'middle';
   return (
     <text
       x={x}
       y={startY}
       fontSize={fontSize}
       fontWeight={600}
-      textAnchor="middle"
+      textAnchor={anchor}
       fill={color}
       style={{ fontFamily: 'Inter, "Noto Sans SC", system-ui, sans-serif' }}
     >
@@ -930,38 +1521,84 @@ interface LatexLineProps {
   fontSize: number;
   color: string;
   fontWeight?: number;
+  fontStyle?: string;
+  align?: Align;
+  autoFit?: boolean;
 }
 
-function LatexLine({ text, fontSize, color, fontWeight }: LatexLineProps) {
-  const ref = useRef<HTMLDivElement>(null);
+/**
+ * Render a mixed plain-text + KaTeX line inside an HTML container.
+ * Used inside `<foreignObject>` for the live preview only — the export
+ * pipeline replaces the foreignObject with MathJax SVG glyph paths.
+ *
+ * `autoFit`: when the rendered HTML line is wider than the available
+ * container, scale the inner span proportionally so the user can see
+ * the formula in full at preview time.
+ */
+function LatexLine({
+  text,
+  fontSize,
+  color,
+  fontWeight,
+  fontStyle,
+  align = 'center',
+  autoFit = false,
+}: LatexLineProps) {
+  const outerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    if (ref.current) ref.current.innerHTML = renderInlineLatex(text);
-  }, [text]);
+    if (innerRef.current) {
+      innerRef.current.innerHTML = renderInlineLatex(text);
+    }
+    if (!autoFit || !outerRef.current || !innerRef.current) return;
+    const inner = innerRef.current;
+    const outer = outerRef.current;
+    inner.style.transform = '';
+    const innerW = inner.scrollWidth || inner.getBoundingClientRect().width;
+    const outerW = outer.clientWidth;
+    if (innerW > outerW && innerW > 0) {
+      const s = outerW / innerW;
+      const tOrigin =
+        align === 'left'
+          ? 'left center'
+          : align === 'right'
+          ? 'right center'
+          : 'center center';
+      inner.style.transformOrigin = tOrigin;
+      inner.style.transform = `scale(${s})`;
+    }
+  }, [text, autoFit, fontSize, align]);
+
+  const justify =
+    align === 'left'
+      ? 'flex-start'
+      : align === 'right'
+      ? 'flex-end'
+      : 'center';
+  const outerStyle: CSSProperties = {
+    fontFamily: 'Inter, "Noto Sans SC", system-ui, sans-serif',
+    fontSize,
+    fontWeight,
+    fontStyle,
+    color,
+    lineHeight: 1.2,
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: justify,
+    overflow: 'hidden',
+  };
   return (
-    <div
-      ref={ref}
-      style={{
-        fontFamily:
-          'Inter, "Noto Sans SC", system-ui, sans-serif',
-        fontSize,
-        fontWeight,
-        color,
-        textAlign: 'center',
-        lineHeight: 1.2,
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    />
+    <div ref={outerRef} style={outerStyle}>
+      <span ref={innerRef} style={{ display: 'inline-block' }} />
+    </div>
   );
 }
 
 function legendCategories(panels: PanelSpec[]): Category[] {
   const seen = new Set<Category>();
   for (const p of panels) seen.add(p.category);
-  // Stable order matching the visual flow.
   const order: Category[] = ['eeg', 'fnirs', 'hrf', 'graph', 'gate', 'output'];
   return order.filter((c) => seen.has(c));
 }
@@ -969,7 +1606,14 @@ function legendCategories(panels: PanelSpec[]): Category[] {
 function Legend({ categories }: { categories: Category[] }) {
   const items = useMemo(() => {
     return categories.reduce<{ c: Category; x: number }[]>((acc, c) => {
-      const x = acc.length === 0 ? 0 : acc[acc.length - 1].x + 20 + 10 + PALETTE[acc[acc.length - 1].c].legend.length * 6.2 + 24;
+      const x =
+        acc.length === 0
+          ? 0
+          : acc[acc.length - 1].x +
+            20 +
+            10 +
+            PALETTE[acc[acc.length - 1].c].legend.length * 6.2 +
+            24;
       acc.push({ c, x });
       return acc;
     }, []);
@@ -1010,13 +1654,6 @@ interface PanelEditorProps {
   onResetAll: () => void;
 }
 
-/**
- * Per-panel editor surfaced in the simple inspector. Lets the user
- * pick a single panel and override its header text, body text, header
- * font size, body font size and line spacing without rebuilding the
- * preset. Empty fields fall back to the baseline panel + global font
- * sizes, so resetting an override is just clearing the value.
- */
 function PanelEditor({
   panels,
   selectedId,
@@ -1028,8 +1665,8 @@ function PanelEditor({
   onResetAll,
 }: PanelEditorProps) {
   const override = overrides[selectedId];
-  const selected =
-    panels.find((p) => p.id === selectedId) ?? panels[0];
+  const selected = panels.find((p) => p.id === selectedId) ?? panels[0];
+
   const headerValue =
     override?.header !== undefined ? override.header : selected.header;
   const bodyValue =
@@ -1039,12 +1676,17 @@ function PanelEditor({
   const headerSize = override?.headerSize ?? defaults.headerSize;
   const bodySize = override?.bodySize ?? defaults.bodySize;
   const lineSpacing = override?.lineSpacing ?? defaults.lineSpacing;
+  const headerAlign = override?.headerAlign ?? 'center';
+  const bodyAlign = override?.bodyAlign ?? 'center';
+  const bodyAutoFit = override?.bodyAutoFit ?? false;
+  const widthVal = override?.width ?? 0;
+  const heightVal = override?.height ?? 0;
+  const dx = override?.dx ?? 0;
+  const dy = override?.dy ?? 0;
+
   const isOverridden = override !== undefined;
   const hasAnyOverride = Object.keys(overrides).length > 0;
 
-  // Decorate the dropdown label with a small marker for any panel
-  // that already has an active override, so the user can spot which
-  // modules they've already touched.
   const options = panels.map((p) => {
     const baseLabel = p.header.replace(/\n/g, ' / ');
     const marker = p.id in overrides ? '  *' : '';
@@ -1066,6 +1708,12 @@ function PanelEditor({
         rows={2}
         description="支持 \n 换行（在文本里按回车即可）。"
       />
+      <Select
+        label="标题对齐"
+        value={headerAlign}
+        options={ALIGN_OPTIONS}
+        onChange={(v) => onPatch({ headerAlign: v })}
+      />
       <TextArea
         label="正文"
         value={bodyValue}
@@ -1074,30 +1722,73 @@ function PanelEditor({
         monospace
         description="每行一条；留空行表示视觉间隔。$...$ 内为 KaTeX 公式。"
       />
+      <Select
+        label="正文对齐"
+        value={bodyAlign}
+        options={ALIGN_OPTIONS}
+        onChange={(v) => onPatch({ bodyAlign: v })}
+      />
+      <Toggle
+        label="正文按宽度自动缩放"
+        checked={bodyAutoFit}
+        onChange={(v) => onPatch({ bodyAutoFit: v })}
+      />
       <NumberSlider
         label="标题字号"
         value={headerSize}
-        min={8}
-        max={22}
+        min={6}
+        max={28}
         step={0.5}
         onChange={(v) => onPatch({ headerSize: v })}
       />
       <NumberSlider
         label="正文字号"
         value={bodySize}
-        min={6}
-        max={18}
+        min={5}
+        max={22}
         step={0.5}
         onChange={(v) => onPatch({ bodySize: v })}
       />
       <NumberSlider
         label="正文行距"
         value={lineSpacing}
-        min={1}
-        max={2.5}
+        min={0.8}
+        max={5}
         step={0.05}
         onChange={(v) => onPatch({ lineSpacing: v })}
         format={(v) => v.toFixed(2)}
+      />
+      <NumberSlider
+        label="模块宽度（0 = 用全局默认）"
+        value={widthVal}
+        min={0}
+        max={400}
+        step={2}
+        onChange={(v) => onPatch({ width: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="模块高度（0 = 用全局默认）"
+        value={heightVal}
+        min={0}
+        max={500}
+        step={2}
+        onChange={(v) => onPatch({ height: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="水平偏移 dx"
+        value={dx}
+        min={-200}
+        max={200}
+        step={1}
+        onChange={(v) => onPatch({ dx: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="垂直偏移 dy"
+        value={dy}
+        min={-200}
+        max={200}
+        step={1}
+        onChange={(v) => onPatch({ dy: v === 0 ? undefined : v })}
       />
       <div className="flex flex-wrap gap-2 pt-1">
         <button
@@ -1116,6 +1807,444 @@ function PanelEditor({
         >
           全部模块复位
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- edge editor ------------------------------*/
+
+interface EdgeEditorProps {
+  edges: EdgeSpec[];
+  panelMap: Map<string, { x: number; y: number; w: number; h: number; spec: PanelSpec }>;
+  selectedId: string;
+  onSelect: (id: string) => void;
+  overrides: EdgeOverrideMap;
+  onPatch: (patch: Partial<EdgeOverride>) => void;
+  onReset: () => void;
+  onResetAll: () => void;
+}
+
+function EdgeEditor({
+  edges,
+  panelMap,
+  selectedId,
+  onSelect,
+  overrides,
+  onPatch,
+  onReset,
+  onResetAll,
+}: EdgeEditorProps) {
+  const override = overrides[selectedId];
+  const selected = edges.find((e) => e.id === selectedId) ?? edges[0];
+  const fromName =
+    panelMap.get(selected.from)?.spec.header.replace(/\n/g, ' / ') ?? selected.from;
+  const toName =
+    panelMap.get(selected.to)?.spec.header.replace(/\n/g, ' / ') ?? selected.to;
+
+  const isHidden = override?.hidden ?? false;
+  const styleVal = override?.style ?? selected.style ?? 'solid';
+  const thicknessVal = override?.thickness ?? selected.thickness ?? 1.6;
+  const labelVal =
+    override?.label !== undefined ? override.label : selected.label ?? '';
+  const fromYFrac = override?.fromYFrac ?? selected.fromYFrac ?? 0.5;
+  const toYFrac = override?.toYFrac ?? selected.toYFrac ?? 0.5;
+  const fromDx = override?.fromDx ?? 0;
+  const fromDy = override?.fromDy ?? 0;
+  const toDx = override?.toDx ?? 0;
+  const toDy = override?.toDy ?? 0;
+  const labelDx = override?.labelDx ?? 0;
+  const labelDy = override?.labelDy ?? 0;
+
+  const isOverridden = override !== undefined;
+  const hasAnyOverride = Object.keys(overrides).length > 0;
+
+  const options = edges.map((e) => {
+    const a =
+      panelMap.get(e.from)?.spec.header.replace(/\n/g, ' / ') ?? e.from;
+    const b =
+      panelMap.get(e.to)?.spec.header.replace(/\n/g, ' / ') ?? e.to;
+    const marker = e.id in overrides ? '  *' : '';
+    return { value: e.id, label: `${a} → ${b}${marker}` };
+  });
+
+  return (
+    <div className="space-y-2.5">
+      <Select
+        label="箭头"
+        value={selectedId}
+        options={options}
+        onChange={onSelect}
+      />
+      <p className="text-[11px] text-ink-300">
+        {fromName} → {toName}
+      </p>
+      <Toggle
+        label="隐藏此箭头"
+        checked={isHidden}
+        onChange={(v) => onPatch({ hidden: v ? true : undefined })}
+      />
+      <Select
+        label="线型"
+        value={styleVal}
+        options={EDGE_STYLE_OPTIONS}
+        onChange={(v) => onPatch({ style: v })}
+      />
+      <NumberSlider
+        label="线粗"
+        value={thicknessVal}
+        min={0.5}
+        max={6}
+        step={0.1}
+        onChange={(v) => onPatch({ thickness: v })}
+        format={(v) => v.toFixed(1)}
+      />
+      <TextArea
+        label="标签（留空隐藏）"
+        value={labelVal}
+        onChange={(v) => onPatch({ label: v })}
+        rows={1}
+        description="支持 $...$ KaTeX 公式。清空内容即清除标签。"
+      />
+      <NumberSlider
+        label="起点 Y 位置（0=顶 1=底）"
+        value={fromYFrac}
+        min={0}
+        max={1}
+        step={0.01}
+        onChange={(v) => onPatch({ fromYFrac: v })}
+        format={(v) => v.toFixed(2)}
+      />
+      <NumberSlider
+        label="终点 Y 位置（0=顶 1=底）"
+        value={toYFrac}
+        min={0}
+        max={1}
+        step={0.01}
+        onChange={(v) => onPatch({ toYFrac: v })}
+        format={(v) => v.toFixed(2)}
+      />
+      <NumberSlider
+        label="起点偏移 dx"
+        value={fromDx}
+        min={-100}
+        max={100}
+        step={1}
+        onChange={(v) => onPatch({ fromDx: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="起点偏移 dy"
+        value={fromDy}
+        min={-100}
+        max={100}
+        step={1}
+        onChange={(v) => onPatch({ fromDy: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="终点偏移 dx"
+        value={toDx}
+        min={-100}
+        max={100}
+        step={1}
+        onChange={(v) => onPatch({ toDx: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="终点偏移 dy"
+        value={toDy}
+        min={-100}
+        max={100}
+        step={1}
+        onChange={(v) => onPatch({ toDy: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="标签偏移 dx"
+        value={labelDx}
+        min={-100}
+        max={100}
+        step={1}
+        onChange={(v) => onPatch({ labelDx: v === 0 ? undefined : v })}
+      />
+      <NumberSlider
+        label="标签偏移 dy"
+        value={labelDy}
+        min={-100}
+        max={100}
+        step={1}
+        onChange={(v) => onPatch({ labelDy: v === 0 ? undefined : v })}
+      />
+      <div className="flex flex-wrap gap-2 pt-1">
+        <button
+          type="button"
+          disabled={!isOverridden}
+          onClick={onReset}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          恢复此箭头默认值
+        </button>
+        <button
+          type="button"
+          disabled={!hasAnyOverride}
+          onClick={onResetAll}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          全部箭头复位
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------ annotation editor --------------------------*/
+
+interface AnnotationEditorProps {
+  canvasW: number;
+  canvasH: number;
+  annotations: Annotation[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onAdd: () => void;
+  onPatch: (id: string, patch: Partial<Annotation>) => void;
+  onRemove: (id: string) => void;
+}
+
+function AnnotationEditor({
+  canvasW,
+  canvasH,
+  annotations,
+  selectedId,
+  onSelect,
+  onAdd,
+  onPatch,
+  onRemove,
+}: AnnotationEditorProps) {
+  const selected =
+    annotations.find((a) => a.id === selectedId) ?? null;
+
+  const options = [
+    { value: '', label: '— 未选中 —' },
+    ...annotations.map((a, i) => ({
+      value: a.id,
+      label: `#${i + 1}  ${a.text.split('\n')[0].slice(0, 24) || '(空)'}`,
+    })),
+  ];
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="rounded border border-accent bg-accent/20 px-2 py-1 text-[11px] text-ink-50 hover:bg-accent/30"
+        >
+          + 添加批注
+        </button>
+        {selected ? (
+          <button
+            type="button"
+            onClick={() => onRemove(selected.id)}
+            className="rounded border border-rose-500/60 bg-rose-500/15 px-2 py-1 text-[11px] text-ink-50 hover:bg-rose-500/25"
+          >
+            删除选中
+          </button>
+        ) : null}
+      </div>
+      {annotations.length === 0 ? (
+        <p className="text-[11px] text-ink-300">
+          点上方按钮新增；新增后即可在画布里点选编辑。
+        </p>
+      ) : (
+        <Select
+          label="选中批注"
+          value={selectedId ?? ''}
+          options={options}
+          onChange={(v) => onSelect(v === '' ? null : v)}
+        />
+      )}
+      {selected ? (
+        <>
+          <TextArea
+            label="文本（支持 $...$ KaTeX 与多行）"
+            value={selected.text}
+            onChange={(v) => onPatch(selected.id, { text: v })}
+            rows={3}
+          />
+          <Select
+            label="对齐"
+            value={selected.align}
+            options={ALIGN_OPTIONS}
+            onChange={(v) => onPatch(selected.id, { align: v })}
+          />
+          <NumberSlider
+            label="字号"
+            value={selected.fontSize}
+            min={6}
+            max={32}
+            step={0.5}
+            onChange={(v) => onPatch(selected.id, { fontSize: v })}
+          />
+          <NumberSlider
+            label="文本框宽度"
+            value={selected.width}
+            min={40}
+            max={Math.max(120, canvasW)}
+            step={2}
+            onChange={(v) => onPatch(selected.id, { width: v })}
+          />
+          <NumberSlider
+            label="X 位置"
+            value={selected.x}
+            min={0}
+            max={Math.max(120, canvasW)}
+            step={1}
+            onChange={(v) => onPatch(selected.id, { x: v })}
+          />
+          <NumberSlider
+            label="Y 位置"
+            value={selected.y}
+            min={0}
+            max={Math.max(120, canvasH)}
+            step={1}
+            onChange={(v) => onPatch(selected.id, { y: v })}
+          />
+          <label className="flex flex-col gap-1 text-xs text-ink-200">
+            <span>颜色</span>
+            <input
+              type="color"
+              value={selected.color}
+              onChange={(e) =>
+                onPatch(selected.id, { color: e.target.value })
+              }
+              className="h-7 w-full rounded border border-ink-600 bg-ink-800"
+            />
+          </label>
+          <div className="flex gap-3">
+            <Toggle
+              label="加粗"
+              checked={selected.bold ?? false}
+              onChange={(v) => onPatch(selected.id, { bold: v })}
+            />
+            <Toggle
+              label="斜体"
+              checked={selected.italic ?? false}
+              onChange={(v) => onPatch(selected.id, { italic: v })}
+            />
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/* ------------------------ config manager -----------------------------*/
+
+interface ConfigManagerProps {
+  savedConfigs: SavedConfigsMap;
+  onSaveSlot: (name: string) => void;
+  onLoadSlot: (name: string) => void;
+  onDeleteSlot: (name: string) => void;
+  onExport: () => void;
+  onImport: (file: File) => void;
+}
+
+function ConfigManager({
+  savedConfigs,
+  onSaveSlot,
+  onLoadSlot,
+  onDeleteSlot,
+  onExport,
+  onImport,
+}: ConfigManagerProps) {
+  const [name, setName] = useState('');
+  const [selected, setSelected] = useState<string>('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const slotNames = Object.keys(savedConfigs).sort();
+  const slotOptions = [
+    { value: '', label: '— 选择已保存配置 —' },
+    ...slotNames.map((n) => ({ value: n, label: n })),
+  ];
+
+  return (
+    <div className="space-y-2.5">
+      <label className="flex flex-col gap-1 text-xs text-ink-200">
+        <span>配置名</span>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="例如：fig2-v3"
+            className="flex-1 rounded border border-ink-600 bg-ink-800 px-2 py-1 text-ink-50 focus:border-accent focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={!name.trim()}
+            onClick={() => {
+              onSaveSlot(name.trim());
+              setName('');
+            }}
+            className="rounded border border-accent bg-accent/20 px-2 py-1 text-[11px] text-ink-50 hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            保存当前
+          </button>
+        </div>
+      </label>
+      <Select
+        label="本地配置 slot"
+        value={selected}
+        options={slotOptions}
+        onChange={setSelected}
+      />
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={!selected}
+          onClick={() => onLoadSlot(selected)}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          载入
+        </button>
+        <button
+          type="button"
+          disabled={!selected}
+          onClick={() => {
+            onDeleteSlot(selected);
+            setSelected('');
+          }}
+          className="rounded border border-rose-500/60 bg-rose-500/15 px-2 py-1 text-[11px] text-ink-50 hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          删除
+        </button>
+      </div>
+      <p className="text-[11px] text-ink-300">
+        本地保存仅在当前浏览器有效；想跨设备复用请用 JSON 文件：
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onExport}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700"
+        >
+          导出 JSON 文件
+        </button>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700"
+        >
+          导入 JSON 文件
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onImport(f);
+            e.target.value = '';
+          }}
+        />
       </div>
     </div>
   );
