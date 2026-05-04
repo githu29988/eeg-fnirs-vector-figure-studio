@@ -96,14 +96,22 @@ export function ChartShell({
         ) : null}
       </aside>
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
-            图表预览
-          </p>
-          <ExportToolbar getSvg={getSvg} baseFilename={filename} />
-        </div>
-        <div className="rounded-lg border border-ink-700 bg-white p-6 text-ink-900">
-          {figure}
+        {/*
+          Sticky inner block keeps the toolbar + figure pinned to the
+          top of the scroll container while the (often very tall)
+          inspector on the left scrolls. Notes stay outside the sticky
+          block so they flow below the preview as expected.
+        */}
+        <div className="space-y-3 lg:sticky lg:top-2 lg:z-10 lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto lg:bg-ink-950 lg:pb-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-ink-300">
+              图表预览
+            </p>
+            <ExportToolbar getSvg={getSvg} baseFilename={filename} />
+          </div>
+          <div className="rounded-lg border border-ink-700 bg-white p-6 text-ink-900">
+            {figure}
+          </div>
         </div>
         {notes ? (
           <div className="rounded-lg border border-ink-700 bg-ink-900 p-4 text-xs text-ink-200">
