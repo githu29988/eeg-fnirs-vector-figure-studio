@@ -442,6 +442,44 @@ function EegEncoderDetailChart() {
   const [selectedPanelId, setSelectedPanelId] = useState<string>(
     EEG_ENCODER_PANELS[0].id,
   );
+
+  /**
+   * When the user clicks a header / body line in the preview SVG, the chart
+   * dispatches a `focusRequest` so the inspector knows which textarea to
+   * focus (and which line to highlight). The `nonce` makes useEffect refire
+   * even if the same target is clicked twice in a row.
+   */
+  const [focusRequest, setFocusRequest] = useState<
+    | { kind: 'panel-header'; panelId: string; nonce: number }
+    | {
+        kind: 'panel-body-line';
+        panelId: string;
+        lineIndex: number;
+        nonce: number;
+      }
+    | null
+  >(null);
+  const requestFocusHeader = useCallback((panelId: string) => {
+    setSelectedPanelId(panelId);
+    setFocusRequest({
+      kind: 'panel-header',
+      panelId,
+      nonce: Date.now() + Math.random(),
+    });
+  }, []);
+  const requestFocusBodyLine = useCallback(
+    (panelId: string, lineIndex: number) => {
+      setSelectedPanelId(panelId);
+      setFocusRequest({
+        kind: 'panel-body-line',
+        panelId,
+        lineIndex,
+        nonce: Date.now() + Math.random(),
+      });
+    },
+    [],
+  );
+
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>(
     EEG_ENCODER_EDGES[0].id,
   );
@@ -962,6 +1000,7 @@ function EegEncoderDetailChart() {
               }
               onReset={() => resetPanel(selectedPanelId)}
               onResetAll={resetAllPanels}
+              focusRequest={focusRequest}
             />
           </ControlGroup>
 
@@ -1193,6 +1232,8 @@ function EegEncoderDetailChart() {
                   bodyAutoFit={ov?.bodyAutoFit ?? false}
                   isSelected={selectedPanelId === p.id}
                   onSelect={() => setSelectedPanelId(p.id)}
+                  onSelectHeader={() => requestFocusHeader(p.id)}
+                  onSelectBodyLine={(idx) => requestFocusBodyLine(p.id, idx)}
                 />
               );
             })}
@@ -1327,6 +1368,10 @@ interface PanelProps {
   bodyAutoFit: boolean;
   isSelected: boolean;
   onSelect: () => void;
+  /** Click on the header text — selects panel + focuses header textarea. */
+  onSelectHeader?: () => void;
+  /** Click on a body line — selects panel + focuses body textarea on line. */
+  onSelectBodyLine?: (lineIndex: number) => void;
 }
 
 function Panel({
@@ -1343,6 +1388,8 @@ function Panel({
   bodyAutoFit,
   isSelected,
   onSelect,
+  onSelectHeader,
+  onSelectBodyLine,
 }: PanelProps) {
   const style = PALETTE[spec.category];
   const headerLines = spec.header.split('\n').length;
@@ -1360,13 +1407,11 @@ function Panel({
   const bodyTopPad = 6;
 
   const bodyLayout = useMemo(() => {
-    const totalLineH = spec.body.reduce(
-      (acc, ln) => acc + (ln ? lineHeight : emptyLineHeight),
-      0,
-    );
-    const available = h - headerH - bodyTopPad - 4;
-    const offset =
-      headerH + bodyTopPad + Math.max(0, (available - totalLineH) / 2);
+    // Body lines start immediately below the header divider (top-aligned).
+    // Panels with extra vertical room simply leave the bottom empty rather
+    // than auto-centering the body, which previously made every short
+    // body look like it had a phantom blank line above the first line.
+    const offset = headerH + bodyTopPad;
     return spec.body.reduce<{ line: string; y: number; h: number }[]>(
       (acc, line) => {
         const lh = line ? lineHeight : emptyLineHeight;
@@ -1377,7 +1422,7 @@ function Panel({
       },
       [],
     );
-  }, [spec.body, h, headerH, lineHeight, emptyLineHeight]);
+  }, [spec.body, headerH, lineHeight, emptyLineHeight]);
 
   return (
     <g
@@ -1422,6 +1467,7 @@ function Panel({
         color={style.edge}
         lineHeight={headerLineH}
         align={headerAlign}
+        onClick={onSelectHeader}
       />
       <line
         x1={12}
@@ -1451,6 +1497,9 @@ function Panel({
               color="#1c1c1c"
               align={bodyAlign}
               autoFit={bodyAutoFit}
+              onClick={
+                onSelectBodyLine ? () => onSelectBodyLine(i) : undefined
+              }
             />
           </foreignObject>
         ) : null,
@@ -1467,6 +1516,7 @@ interface PanelHeaderTextProps {
   color: string;
   lineHeight: number;
   align: Align;
+  onClick?: () => void;
 }
 
 /**
@@ -1484,6 +1534,7 @@ function PanelHeaderText({
   color,
   lineHeight,
   align,
+  onClick,
 }: PanelHeaderTextProps) {
   const lines = text.split('\n');
   const totalH = lines.length * lineHeight;
@@ -1500,7 +1551,18 @@ function PanelHeaderText({
       fontWeight={600}
       textAnchor={anchor}
       fill={color}
-      style={{ fontFamily: 'Inter, "Noto Sans SC", system-ui, sans-serif' }}
+      style={{
+        fontFamily: 'Inter, "Noto Sans SC", system-ui, sans-serif',
+        cursor: onClick ? 'pointer' : undefined,
+      }}
+      onClick={
+        onClick
+          ? (ev) => {
+              ev.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
     >
       {lines.map((line, i) => (
         <tspan key={i} x={x} dy={i === 0 ? 0 : lineHeight}>
@@ -1519,6 +1581,8 @@ interface LatexLineProps {
   fontStyle?: string;
   align?: Align;
   autoFit?: boolean;
+  /** Optional click handler. Cursor turns to pointer when provided. */
+  onClick?: () => void;
 }
 
 /**
@@ -1538,6 +1602,7 @@ function LatexLine({
   fontStyle,
   align = 'center',
   autoFit = false,
+  onClick,
 }: LatexLineProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLSpanElement>(null);
@@ -1583,9 +1648,21 @@ function LatexLine({
     alignItems: 'center',
     justifyContent: justify,
     overflow: 'hidden',
+    cursor: onClick ? 'pointer' : undefined,
   };
   return (
-    <div ref={outerRef} style={outerStyle}>
+    <div
+      ref={outerRef}
+      style={outerStyle}
+      onClick={
+        onClick
+          ? (ev) => {
+              ev.stopPropagation();
+              onClick();
+            }
+          : undefined
+      }
+    >
       <span ref={innerRef} style={{ display: 'inline-block' }} />
     </div>
   );
@@ -1647,6 +1724,20 @@ interface PanelEditorProps {
   onPatch: (patch: Partial<PanelOverride>) => void;
   onReset: () => void;
   onResetAll: () => void;
+  /**
+   * Focus / scroll request emitted when the user clicks header / body
+   * line text in the live preview. The editor reacts by focusing the
+   * matching textarea (and selecting the relevant line for body lines).
+   */
+  focusRequest:
+    | { kind: 'panel-header'; panelId: string; nonce: number }
+    | {
+        kind: 'panel-body-line';
+        panelId: string;
+        lineIndex: number;
+        nonce: number;
+      }
+    | null;
 }
 
 function PanelEditor({
@@ -1658,6 +1749,7 @@ function PanelEditor({
   onPatch,
   onReset,
   onResetAll,
+  focusRequest,
 }: PanelEditorProps) {
   const override = overrides[selectedId];
   const selected = panels.find((p) => p.id === selectedId) ?? panels[0];
@@ -1668,6 +1760,44 @@ function PanelEditor({
     override?.bodyText !== undefined
       ? override.bodyText
       : selected.body.join('\n');
+
+  const headerRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // Whenever a fresh focus-request comes in for THIS panel, focus the
+  // matching textarea. Body-line requests also select that line so the
+  // user starts typing on the clicked line instead of at the top.
+  useEffect(() => {
+    if (!focusRequest) return;
+    if (focusRequest.panelId !== selectedId) return;
+    if (focusRequest.kind === 'panel-header') {
+      const ta = headerRef.current;
+      if (!ta) return;
+      ta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      ta.focus();
+      ta.setSelectionRange(0, ta.value.length);
+      return;
+    }
+    if (focusRequest.kind === 'panel-body-line') {
+      const ta = bodyRef.current;
+      if (!ta) return;
+      const text = ta.value;
+      let pos = 0;
+      for (let i = 0; i < focusRequest.lineIndex; i++) {
+        const next = text.indexOf('\n', pos);
+        if (next === -1) {
+          pos = text.length;
+          break;
+        }
+        pos = next + 1;
+      }
+      const lineEnd = text.indexOf('\n', pos);
+      const endPos = lineEnd === -1 ? text.length : lineEnd;
+      ta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      ta.focus();
+      ta.setSelectionRange(pos, endPos);
+    }
+  }, [focusRequest, selectedId]);
   const headerSize = override?.headerSize ?? defaults.headerSize;
   const bodySize = override?.bodySize ?? defaults.bodySize;
   const lineSpacing = override?.lineSpacing ?? defaults.lineSpacing;
@@ -1701,7 +1831,8 @@ function PanelEditor({
         value={headerValue}
         onChange={(v) => onPatch({ header: v })}
         rows={2}
-        description="支持 \n 换行（在文本里按回车即可）。"
+        description="支持 \n 换行（在文本里按回车即可）。也可直接点击预览图里的标题快速编辑。"
+        inputRef={headerRef}
       />
       <Select
         label="标题对齐"
@@ -1715,7 +1846,8 @@ function PanelEditor({
         onChange={(v) => onPatch({ bodyText: v })}
         rows={6}
         monospace
-        description="每行一条；留空行表示视觉间隔。$...$ 内为 KaTeX 公式。"
+        description="每行一条；留空行表示视觉间隔。$...$ 内为 KaTeX 公式。点击预览图任意一行可直接定位到该行。"
+        inputRef={bodyRef}
       />
       <Select
         label="正文对齐"
