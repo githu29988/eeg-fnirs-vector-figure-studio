@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type ReactNode, type Ref } from 'react';
 import { COLORMAP_OPTIONS, type ColormapName } from '../lib/colormaps';
 
 export function ControlGroup({
@@ -154,6 +154,7 @@ export function TextArea({
   description,
   placeholder,
   monospace,
+  inputRef,
 }: {
   label: string;
   value: string;
@@ -162,6 +163,7 @@ export function TextArea({
   description?: string;
   placeholder?: string;
   monospace?: boolean;
+  inputRef?: Ref<HTMLTextAreaElement>;
 }) {
   const id = useId();
   return (
@@ -169,6 +171,7 @@ export function TextArea({
       <span>{label}</span>
       <textarea
         id={id}
+        ref={inputRef}
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
