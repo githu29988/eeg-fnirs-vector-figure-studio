@@ -82,6 +82,12 @@ export async function svgToVectorString(svg: SVGSVGElement): Promise<string> {
   document.body.appendChild(host);
   host.appendChild(cloned);
   try {
+    // Strip any in-canvas UI nodes that were marked as non-exportable
+    // (selection rings, hover handles, etc.). The chart is responsible
+    // for tagging them with `data-export="false"`.
+    cloned
+      .querySelectorAll('[data-export="false"]')
+      .forEach((el) => el.remove());
     await replaceLatexForeignObjects(cloned);
     return new XMLSerializer().serializeToString(cloned);
   } finally {
@@ -117,20 +123,42 @@ export async function replaceLatexForeignObjects(svg: SVGSVGElement): Promise<vo
     const y = parseFloat(fo.getAttribute('y') ?? '0');
     const width = parseFloat(fo.getAttribute('width') ?? '0');
     const height = parseFloat(fo.getAttribute('height') ?? '0');
+    const align = (fo.getAttribute('data-latex-align') ?? 'center') as
+      | 'left'
+      | 'center'
+      | 'right';
+    const autoFit = fo.getAttribute('data-latex-auto-fit') === '1';
 
     const { innerSvg, widthPx, heightPx } = await renderInlineLatexToSvg(
       latex,
       { fontSize },
     );
 
+    // If the source line opted in to auto-fit and the rendered glyphs
+    // are wider than the foreignObject box, shrink uniformly to fit.
+    // Height shrinks proportionally; the alignment logic below uses the
+    // post-scale dimensions so the box still respects left/right anchors.
+    const scale =
+      autoFit && widthPx > 0 && widthPx > width ? width / widthPx : 1;
+    const renderedW = widthPx * scale;
+    const renderedH = heightPx * scale;
+
     // Compose a wrapper <g> at the foreignObject's position. Inside,
     // place a nested <svg> sized to `widthPx × heightPx` so its
     // viewBox-driven coordinates land where we want them, then translate
-    // to centre.
+    // to the requested anchor and apply auto-fit scaling if needed.
+    let tx: number;
+    if (align === 'left') tx = x;
+    else if (align === 'right') tx = x + (width - renderedW);
+    else tx = x + (width - renderedW) / 2;
+    const ty = y + (height - renderedH) / 2;
+
     const g = document.createElementNS(ns, 'g');
     g.setAttribute(
       'transform',
-      `translate(${x + (width - widthPx) / 2}, ${y + (height - heightPx) / 2})`,
+      scale === 1
+        ? `translate(${tx}, ${ty})`
+        : `translate(${tx}, ${ty}) scale(${scale})`,
     );
     g.setAttribute('font-weight', fontWeight);
     g.setAttribute('font-style', fontStyle);
