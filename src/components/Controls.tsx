@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type ReactNode, type Ref } from 'react';
 import { COLORMAP_OPTIONS, type ColormapName } from '../lib/colormaps';
 
 export function ControlGroup({
@@ -138,11 +138,53 @@ export function ColormapSelect({
 }) {
   return (
     <Select
-      label="Color map"
+      label="配色"
       value={value}
       options={COLORMAP_OPTIONS}
       onChange={onChange}
     />
+  );
+}
+
+export function TextArea({
+  label,
+  value,
+  onChange,
+  rows = 3,
+  description,
+  placeholder,
+  monospace,
+  inputRef,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  description?: string;
+  placeholder?: string;
+  monospace?: boolean;
+  inputRef?: Ref<HTMLTextAreaElement>;
+}) {
+  const id = useId();
+  return (
+    <label htmlFor={id} className="flex flex-col gap-1 text-xs text-ink-200">
+      <span>{label}</span>
+      <textarea
+        id={id}
+        ref={inputRef}
+        rows={rows}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+        className={`rounded border border-ink-600 bg-ink-800 px-2 py-1 text-ink-50 focus:border-accent focus:outline-none ${
+          monospace ? 'font-mono text-[11px]' : ''
+        }`}
+      />
+      {description ? (
+        <span className="text-[11px] text-ink-300">{description}</span>
+      ) : null}
+    </label>
   );
 }
 

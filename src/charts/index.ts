@@ -17,4 +17,6 @@ import './spatiotemporal-cnn';
 import './seizure-focus';
 import './dynamic-chord';
 import './cortical-3d';
+import './architecture-overall';
+import './eeg-encoder-detail';
 

@@ -64,25 +64,25 @@ function FlowchartChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Layout',
+      label: '布局',
       fields: [
-        { type: 'number', key: 'col', label: 'column spacing', min: 100, max: 260, step: 2, value: colSpacing, onChange: setColSpacing, slider: true },
-        { type: 'number', key: 'row', label: 'row spacing', min: 60, max: 200, step: 2, value: rowSpacingState, onChange: setRowSpacing, slider: true },
+        { type: 'number', key: 'col', label: '列间距', min: 100, max: 260, step: 2, value: colSpacing, onChange: setColSpacing, slider: true },
+        { type: 'number', key: 'row', label: '行间距', min: 60, max: 200, step: 2, value: rowSpacingState, onChange: setRowSpacing, slider: true },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'shp', label: 'Tensor-shape labels', value: showShapes, onChange: setShowShapes },
-        { type: 'toggle', key: 'lbl', label: 'Block labels', value: showLabels, onChange: setShowLabels },
+        { type: 'toggle', key: 'shp', label: '张量形状标签', value: showShapes, onChange: setShowShapes },
+        { type: 'toggle', key: 'lbl', label: '区块标签', value: showLabels, onChange: setShowLabels },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
     {
-      label: 'Topology',
+      label: '拓扑',
       fields: [
-        { type: 'info', key: 'b', label: 'blocks', value: String(BLOCKS.length) },
-        { type: 'info', key: 'e', label: 'edges', value: String(EDGES.length) },
+        { type: 'info', key: 'b', label: '区块数', value: String(BLOCKS.length) },
+        { type: 'info', key: 'e', label: '边数', value: String(EDGES.length) },
       ],
     },
   ];
@@ -125,9 +125,9 @@ function FlowchartChart() {
           presets={[
             {
               id: 'pres',
-              label: 'Presentation grid',
-              hint: 'slides',
-              description: 'Wider columns, larger label text spacing.',
+              label: '演示网格',
+              hint: '幻灯片',
+              description: '更宽的列、更大的标签间距。',
               apply: () => {
                 setColSpacing(180);
                 setRowSpacing(130);
@@ -137,9 +137,9 @@ function FlowchartChart() {
             },
             {
               id: 'compact',
-              label: 'Compact diagram',
-              hint: 'paper',
-              description: 'Tighter spacing for journal column figures.',
+              label: '紧凑示意',
+              hint: '论文',
+              description: '较紧的间距，适合期刊栏宽插图。',
               apply: () => {
                 setColSpacing(120);
                 setRowSpacing(86);
@@ -149,9 +149,9 @@ function FlowchartChart() {
             },
             {
               id: 'arrows',
-              label: 'Arrows only',
-              hint: 'minimal',
-              description: 'Hide block fills — emphasise dataflow edges.',
+              label: '仅箭头',
+              hint: '极简',
+              description: '隐藏区块填充 — 突出数据流边。',
               apply: () => {
                 setShowShapes(false);
                 setShowLabels(true);
@@ -159,9 +159,9 @@ function FlowchartChart() {
             },
             {
               id: 'magma',
-              label: 'Magma palette',
-              hint: 'palette',
-              description: 'Warm-tone alternative to cividis.',
+              label: 'Magma 色带',
+              hint: '色彩',
+              description: 'Cividis 之外的暖色变体。',
               apply: () => {
                 setColormap('magma');
               },
@@ -174,9 +174,9 @@ function FlowchartChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Layout">
+          <ControlGroup label="布局">
             <NumberSlider
-              label="column spacing"
+              label="列间距"
               value={colSpacing}
               min={120}
               max={220}
@@ -184,18 +184,17 @@ function FlowchartChart() {
               onChange={setColSpacing}
             />
           </ControlGroup>
-          <ControlGroup label="Display">
-            <Toggle label="Show tensor shapes" checked={showShapes} onChange={setShowShapes} />
+          <ControlGroup label="显示">
+            <Toggle label="显示张量形状" checked={showShapes} onChange={setShowShapes} />
             <ColormapSelect value={colormap} onChange={setColormap} />
           </ControlGroup>
         </>
       }
       notes={
         <p>
-          Layered DAG of the bimodal fusion network. Tensor-shape labels
-          float along each edge to make dimension changes legible. Edit the
-          block list in <code>fusion-flowchart/index.tsx</code> to adapt
-          the diagram to a new architecture.
+          双模态融合网络的分层 DAG。张量形状标签沿每条边漂浮显示，以便读出
+          维度变化。编辑 <code>fusion-flowchart/index.tsx</code> 中的区块
+          列表，可适配新架构。
         </p>
       }
       figure={
@@ -328,10 +327,10 @@ function FlowchartChart() {
 
 registerChart({
   id: 'fusion-flowchart',
-  title: 'Bimodal Feature Fusion Flowchart',
-  titleZh: '双模态特征融合流程图',
+  title: '双模态特征融合流程图',
+  titleEn: 'Bimodal Feature Fusion Flowchart',
   category: 'architecture',
   summary:
-    'Layered DAG of the EEG/fNIRS fusion network with tensor-shape edge annotations.',
+    'EEG/fNIRS 融合网络的分层 DAG，边上标注张量形状。',
   component: FlowchartChart,
 });

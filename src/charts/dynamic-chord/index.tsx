@@ -64,24 +64,24 @@ function DynamicChordChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Time',
+      label: '时间',
       fields: [
-        { type: 'number', key: 't', label: `slice / ${T - 1}`, min: 0, max: T - 1, step: 1, value: t, onChange: setT, slider: true },
-        { type: 'info', key: 'T', label: 'frames (T)', value: String(T) },
-        { type: 'number', key: 'seed', label: 'seed', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
+        { type: 'number', key: 't', label: `帧 / ${T - 1}`, min: 0, max: T - 1, step: 1, value: t, onChange: setT, slider: true },
+        { type: 'info', key: 'T', label: '总帧数 T', value: String(T) },
+        { type: 'number', key: 'seed', label: '随机种子', min: 0, max: 9999, step: 1, value: seed, onChange: setSeed },
       ],
     },
     {
-      label: 'Layout',
+      label: '布局',
       fields: [
-        { type: 'number', key: 'pad', label: 'pad angle (rad)', min: 0, max: 0.2, step: 0.005, value: padAngle, onChange: setPadAngle, slider: true, format: (v) => v.toFixed(3) },
-        { type: 'info', key: 'N', label: 'regions (N)', value: String(REGIONS.length) },
+        { type: 'number', key: 'pad', label: '间隔角（rad）', min: 0, max: 0.2, step: 0.005, value: padAngle, onChange: setPadAngle, slider: true, format: (v) => v.toFixed(3) },
+        { type: 'info', key: 'N', label: '脑区数 N', value: String(REGIONS.length) },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'number', key: 'ro', label: 'ribbon opacity', min: 0, max: 1, step: 0.05, value: ribbonOpacity, onChange: setRibbonOpacity, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'ro', label: '丝带不透明度', min: 0, max: 1, step: 0.05, value: ribbonOpacity, onChange: setRibbonOpacity, slider: true, format: (v) => v.toFixed(2) },
         { type: 'colormap', key: 'cmap', value: colormap, onChange: setColormap },
       ],
     },
@@ -116,9 +116,9 @@ function DynamicChordChart() {
           presets={[
             {
               id: 'preictal',
-              label: 'Pre-ictal snapshot',
+              label: '发作前快照',
               hint: 't=4',
-              description: 'Early window before seizure onset.',
+              description: '发作起始前的早期窗口。',
               apply: () => {
                 setT(4);
                 setRibbonOpacity(0.55);
@@ -126,9 +126,9 @@ function DynamicChordChart() {
             },
             {
               id: 'ictal',
-              label: 'Ictal peak',
+              label: '发作期峰值',
               hint: 't=12',
-              description: 'Strong long-range coupling peak frame.',
+              description: '远距离耦合峰值帧。',
               apply: () => {
                 setT(12);
                 setRibbonOpacity(0.7);
@@ -136,9 +136,9 @@ function DynamicChordChart() {
             },
             {
               id: 'sparse',
-              label: 'Sparse ribbons',
-              hint: 'minimal',
-              description: 'Thin ribbons — declutter dense networks.',
+              label: '稀疏丝带',
+              hint: '极简',
+              description: '细丝带 — 减轻密集网络的拥挤。',
               apply: () => {
                 setRibbonOpacity(0.3);
                 setPadAngle(0.06);
@@ -146,9 +146,9 @@ function DynamicChordChart() {
             },
             {
               id: 'cividis',
-              label: 'Cividis palette',
-              hint: 'palette',
-              description: 'Color-blind safe variant of the chord wheel.',
+              label: 'Cividis 色带',
+              hint: '色彩',
+              description: '和弦轮的色盲友好变体。',
               apply: () => {
                 setColormap('cividis');
               },
@@ -161,7 +161,7 @@ function DynamicChordChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Time slice">
+          <ControlGroup label="时间切片">
             <NumberSlider
               label={`t / ${T - 1}`}
               value={t}
@@ -171,18 +171,17 @@ function DynamicChordChart() {
               onChange={setT}
             />
           </ControlGroup>
-          <ControlGroup label="Palette">
+          <ControlGroup label="配色">
             <ColormapSelect value={colormap} onChange={setColormap} />
           </ControlGroup>
         </>
       }
       notes={
         <p>
-          Static snapshot of a <code>T × N × N</code> attention tensor at
-          time slice <code>t</code>. The outer ring lists 10 cortical
-          regions; each ribbon's thickness encodes the bidirectional
-          attention weight between two regions. Slide{' '}
-          <strong>t</strong> to scrub through time.
+          在时间切片 <code>t</code> 上的
+          <code>T × N × N</code> 注意力张量静态快照。外环列出 10 个
+          皮层脑区；每条丝带的厚度编码两脑区之间的双向注意力权重。拖动
+          <strong>t</strong> 可扫过时间。
         </p>
       }
       figure={
@@ -237,10 +236,10 @@ function DynamicChordChart() {
 
 registerChart({
   id: 'dynamic-chord',
-  title: 'Dynamic Connectivity Chord',
-  titleZh: '动态连接注意力图',
+  title: '动态连接注意力图',
+  titleEn: 'Dynamic Connectivity Chord',
   category: 'clinical',
   summary:
-    'Time-sliceable chord diagram of a T × N × N attention tensor with hemispheric clustering.',
+    '可按时间切片查看的 T × N × N 注意力张量和弦图，具半球聚类。',
   component: DynamicChordChart,
 });

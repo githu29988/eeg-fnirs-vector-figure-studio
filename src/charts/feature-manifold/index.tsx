@@ -37,27 +37,27 @@ function FeatureManifold() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Embedding',
+      label: '嵌入',
       fields: [
-        { type: 'select', key: 'emb', label: 'algorithm', value: embedding, onChange: (v) => setEmbedding(v as Embedding), options: [
+        { type: 'select', key: 'emb', label: '算法', value: embedding, onChange: (v) => setEmbedding(v as Embedding), options: [
           { value: 'umap-like', label: 'UMAP-like' },
           { value: 'tsne-like', label: 't-SNE-like' },
         ] },
-        { type: 'number', key: 'seed', label: 'seed override', min: 0, max: 9999, step: 1, value: seed, onChange: setSeedOverride },
+        { type: 'number', key: 'seed', label: '随机种子覆写', min: 0, max: 9999, step: 1, value: seed, onChange: setSeedOverride },
       ],
     },
     {
-      label: 'Density',
+      label: '密度',
       fields: [
-        { type: 'number', key: 'pc', label: 'points / class', min: 20, max: 5000, step: 10, value: perClass, onChange: setPerClass, slider: true },
-        { type: 'number', key: 'sp', label: 'cluster spread', min: 0.05, max: 2, step: 0.01, value: spread, onChange: setSpread, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'pc', label: '每类点数', min: 20, max: 5000, step: 10, value: perClass, onChange: setPerClass, slider: true },
+        { type: 'number', key: 'sp', label: '簇扩散度', min: 0.05, max: 2, step: 0.01, value: spread, onChange: setSpread, slider: true, format: (v) => v.toFixed(2) },
       ],
     },
     {
-      label: 'Display',
+      label: '显示',
       fields: [
-        { type: 'toggle', key: 'el', label: 'Confidence ellipses', value: showEllipses, onChange: setShowEllipses },
-        { type: 'number', key: 'pr', label: 'point radius (px)', min: 0.5, max: 6, step: 0.1, value: pointRadius, onChange: setPointRadius, slider: true, format: (v) => v.toFixed(1) },
+        { type: 'toggle', key: 'el', label: '置信椭圆', value: showEllipses, onChange: setShowEllipses },
+        { type: 'number', key: 'pr', label: '点半径（px）', min: 0.5, max: 6, step: 0.1, value: pointRadius, onChange: setPointRadius, slider: true, format: (v) => v.toFixed(1) },
       ],
     },
   ];
@@ -101,9 +101,9 @@ function FeatureManifold() {
           presets={[
             {
               id: 'tight',
-              label: 'Tight clusters',
-              hint: 'separable',
-              description: 'Low spread, ellipses on — separability story.',
+              label: '紧实簇',
+              hint: '可分',
+              description: '低扩散度、启用椭圆 — 可分性叙事。',
               apply: () => {
                 setSpread(0.35);
                 setShowEllipses(true);
@@ -111,9 +111,9 @@ function FeatureManifold() {
             },
             {
               id: 'overlap',
-              label: 'Overlapping clusters',
-              hint: 'difficult',
-              description: 'High spread — motivates richer features.',
+              label: '重叠簇',
+              hint: '艰难',
+              description: '高扩散度 — 驱动更丰富的特征。',
               apply: () => {
                 setSpread(1.1);
                 setShowEllipses(true);
@@ -121,18 +121,18 @@ function FeatureManifold() {
             },
             {
               id: 'tsne',
-              label: 't-SNE-like view',
-              hint: 'embedding',
-              description: 'Switch projection method to t-SNE-like.',
+              label: 't-SNE 视图',
+              hint: '嵌入',
+              description: '切换投影方法为 t-SNE-like。',
               apply: () => {
                 setEmbedding('tsne-like');
               },
             },
             {
               id: 'umap',
-              label: 'UMAP-like view',
-              hint: 'embedding',
-              description: 'Switch back to the UMAP-style projection.',
+              label: 'UMAP 视图',
+              hint: '嵌入',
+              description: '切回 UMAP-like 投影。',
               apply: () => {
                 setEmbedding('umap-like');
               },
@@ -145,9 +145,9 @@ function FeatureManifold() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Embedding">
+          <ControlGroup label="嵌入">
             <Select
-              label="Algorithm"
+              label="算法"
               value={embedding}
               options={[
                 { value: 'umap-like', label: 'UMAP-like' },
@@ -156,9 +156,9 @@ function FeatureManifold() {
               onChange={setEmbedding}
             />
           </ControlGroup>
-          <ControlGroup label="Density">
+          <ControlGroup label="密度">
             <NumberSlider
-              label="points per class"
+              label="每类点数"
               value={perClass}
               min={50}
               max={1500}
@@ -166,7 +166,7 @@ function FeatureManifold() {
               onChange={setPerClass}
             />
             <NumberSlider
-              label="cluster spread"
+              label="簇扩散度"
               value={spread}
               min={0.2}
               max={1.6}
@@ -175,9 +175,9 @@ function FeatureManifold() {
               format={(v) => v.toFixed(2)}
             />
           </ControlGroup>
-          <ControlGroup label="Annotations">
+          <ControlGroup label="标注">
             <Toggle
-              label="95% confidence ellipses"
+              label="95% 置信椭圆"
               checked={showEllipses}
               onChange={setShowEllipses}
             />
@@ -186,9 +186,8 @@ function FeatureManifold() {
       }
       notes={
         <p>
-          A synthetic 4-class manifold with seeded Gaussian clusters. The
-          axes are unitless embedding coordinates. Confidence ellipses use
-          the per-class 2×2 covariance with a χ² cutoff of 5.991 (95%).
+          使用随机种子高斯簇生成的合成 4 类流形。坐标轴为无量纲嵌入坐标。置信
+          椭圆使用每类的 2×2 协方差与 χ² 阈值 5.991（95%）。
         </p>
       }
       figure={
@@ -262,10 +261,10 @@ function FeatureManifold() {
 
 registerChart({
   id: 'feature-manifold',
-  title: 'Feature Manifold (t-SNE / UMAP)',
-  titleZh: '特征流形可视化',
+  title: '特征流形可视化',
+  titleEn: 'Feature Manifold (t-SNE / UMAP)',
   category: 'evaluation',
   summary:
-    'Class-coloured 2D embedding scatter with optional 95% confidence ellipses per class.',
+    '按类别著色的二维嵌入散点图，可选启用每类 95% 置信植圆。',
   component: FeatureManifold,
 });

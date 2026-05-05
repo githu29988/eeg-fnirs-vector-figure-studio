@@ -82,6 +82,12 @@ export async function svgToVectorString(svg: SVGSVGElement): Promise<string> {
   document.body.appendChild(host);
   host.appendChild(cloned);
   try {
+    // Strip any in-canvas UI nodes that were marked as non-exportable
+    // (selection rings, hover handles, etc.). The chart is responsible
+    // for tagging them with `data-export="false"`.
+    cloned
+      .querySelectorAll('[data-export="false"]')
+      .forEach((el) => el.remove());
     await replaceLatexForeignObjects(cloned);
     return new XMLSerializer().serializeToString(cloned);
   } finally {
@@ -112,28 +118,57 @@ export async function replaceLatexForeignObjects(svg: SVGSVGElement): Promise<vo
     );
     const fontWeight = fo.getAttribute('data-latex-font-weight') ?? '400';
     const fontStyle = fo.getAttribute('data-latex-font-style') ?? 'normal';
+    const fillColor = fo.getAttribute('data-latex-color') ?? null;
 
     const x = parseFloat(fo.getAttribute('x') ?? '0');
     const y = parseFloat(fo.getAttribute('y') ?? '0');
     const width = parseFloat(fo.getAttribute('width') ?? '0');
     const height = parseFloat(fo.getAttribute('height') ?? '0');
+    const align = (fo.getAttribute('data-latex-align') ?? 'center') as
+      | 'left'
+      | 'center'
+      | 'right';
+    const autoFit = fo.getAttribute('data-latex-auto-fit') === '1';
 
     const { innerSvg, widthPx, heightPx } = await renderInlineLatexToSvg(
       latex,
       { fontSize },
     );
 
+    // If the source line opted in to auto-fit and the rendered glyphs
+    // are wider than the foreignObject box, shrink uniformly to fit.
+    // Height shrinks proportionally; the alignment logic below uses the
+    // post-scale dimensions so the box still respects left/right anchors.
+    const scale =
+      autoFit && widthPx > 0 && widthPx > width ? width / widthPx : 1;
+    const renderedW = widthPx * scale;
+    const renderedH = heightPx * scale;
+
     // Compose a wrapper <g> at the foreignObject's position. Inside,
     // place a nested <svg> sized to `widthPx × heightPx` so its
     // viewBox-driven coordinates land where we want them, then translate
-    // to centre.
+    // to the requested anchor and apply auto-fit scaling if needed.
+    let tx: number;
+    if (align === 'left') tx = x;
+    else if (align === 'right') tx = x + (width - renderedW);
+    else tx = x + (width - renderedW) / 2;
+    const ty = y + (height - renderedH) / 2;
+
     const g = document.createElementNS(ns, 'g');
     g.setAttribute(
       'transform',
-      `translate(${x + (width - widthPx) / 2}, ${y + (height - heightPx) / 2})`,
+      scale === 1
+        ? `translate(${tx}, ${ty})`
+        : `translate(${tx}, ${ty}) scale(${scale})`,
     );
     g.setAttribute('font-weight', fontWeight);
     g.setAttribute('font-style', fontStyle);
+    if (fillColor) {
+      // Per-line colour override. MathJax glyph paths inherit `fill`
+      // through the wrapper `<g>`, so this single attribute is enough
+      // to recolour the whole formula.
+      g.setAttribute('fill', fillColor);
+    }
     g.setAttribute('aria-label', latex);
 
     // Parse the MathJax SVG markup into a real DOM element under our
@@ -148,6 +183,19 @@ export async function replaceLatexForeignObjects(svg: SVGSVGElement): Promise<vo
       // The MathJax style attribute uses HTML units like `vertical-align`
       // that confuse strict SVG renderers; strip it.
       inner.removeAttribute('style');
+      // MathJax inserts an oversized `<rect data-background>` around any
+      // `<merror>` node it produces (its hit-test target for tooltip /
+      // error display). The rect has no fill attribute so SVG defaults
+      // it to solid black, which renders as a giant horizontal bar in
+      // the exported figure. We surface a graceful warning in the
+      // console instead of leaking a 21000×950 black rectangle.
+      const errorRects = inner.querySelectorAll('rect[data-background]');
+      if (errorRects.length) {
+        console.warn(
+          `[export] MathJax error rendering "${latex}" — error background stripped from output.`,
+        );
+        errorRects.forEach((r) => r.remove());
+      }
       g.appendChild(document.importNode(inner, true));
       fo.replaceWith(g);
     }

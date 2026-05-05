@@ -93,22 +93,22 @@ function CalibrationChart() {
 
   const expertSchema: ExpertSchema = [
     {
-      label: 'Sample',
+      label: '样本',
       fields: [
-        { type: 'number', key: 'n', label: 'n per model', min: 100, max: 5000, step: 50, value: n, onChange: setN, slider: true },
-        { type: 'number', key: 'pi', label: 'positive prevalence', min: 0.05, max: 0.95, step: 0.01, value: prevalence, onChange: setPrevalence, slider: true, format: (v) => v.toFixed(2) },
+        { type: 'number', key: 'n', label: '每个模型 n', min: 100, max: 5000, step: 50, value: n, onChange: setN, slider: true },
+        { type: 'number', key: 'pi', label: '阳性流行率', min: 0.05, max: 0.95, step: 0.01, value: prevalence, onChange: setPrevalence, slider: true, format: (v) => v.toFixed(2) },
       ],
     },
     {
-      label: 'Reliability bins',
+      label: '可靠性分箱',
       fields: [
-        { type: 'number', key: 'b', label: 'bin count', min: 4, max: 30, step: 1, value: bins, onChange: setBins, slider: true },
+        { type: 'number', key: 'b', label: '分箱数', min: 4, max: 30, step: 1, value: bins, onChange: setBins, slider: true },
       ],
     },
     {
-      label: 'Models',
+      label: '模型',
       fields: [
-        { type: 'info', key: 'm', label: 'count', value: String(MODELS.length) },
+        { type: 'info', key: 'm', label: '数量', value: String(MODELS.length) },
       ],
     },
   ];
@@ -163,9 +163,9 @@ function CalibrationChart() {
           presets={[
             {
               id: 'balanced',
-              label: 'Balanced cohort',
-              hint: 'baseline',
-              description: 'n=900, π=0.50, 10 reliability bins.',
+              label: '平衡队列',
+              hint: '基线',
+              description: 'n=900, π=0.50，10 个可靠性分箱。',
               apply: () => {
                 setN(900);
                 setPrevalence(0.5);
@@ -174,9 +174,9 @@ function CalibrationChart() {
             },
             {
               id: 'rare',
-              label: 'Rare-event cohort',
-              hint: 'clinical',
-              description: 'Low prevalence — calibration tilts upper-left.',
+              label: '罕见事件队列',
+              hint: '临床',
+              description: '低流行率 — 校准曲线偏向左上。',
               apply: () => {
                 setN(2000);
                 setPrevalence(0.08);
@@ -185,9 +185,9 @@ function CalibrationChart() {
             },
             {
               id: 'finegrain',
-              label: 'Fine-grained bins',
-              hint: 'audit',
-              description: '20 bins to expose miscalibration pockets.',
+              label: '细粒度分箱',
+              hint: '审计',
+              description: '20 个分箱，暴露错校准区间。',
               apply: () => {
                 setN(3000);
                 setPrevalence(0.5);
@@ -202,9 +202,9 @@ function CalibrationChart() {
       expertSchema={expertSchema}
       inspector={
         <>
-          <ControlGroup label="Sample size">
+          <ControlGroup label="样本量">
             <NumberSlider
-              label="n per model"
+              label="每个模型 n"
               value={n}
               min={150}
               max={4000}
@@ -212,9 +212,9 @@ function CalibrationChart() {
               onChange={setN}
             />
           </ControlGroup>
-          <ControlGroup label="Bins">
+          <ControlGroup label="分箱">
             <NumberSlider
-              label="reliability bins"
+              label="可靠性分箱数"
               value={bins}
               min={5}
               max={20}
@@ -226,10 +226,9 @@ function CalibrationChart() {
       }
       notes={
         <p>
-          Reliability diagram showing the fraction of positives observed in
-          each predicted-probability bin. The dashed diagonal is perfect
-          calibration. The Expected Calibration Error (ECE) in the legend is
-          the size-weighted gap between the diagonal and each model's curve.
+          可靠性图，呈现每个预测概率分箱中观测到的阳性占比。虚线对角线表示
+          完美校准。图例中的预期校准误差（ECE）为各模型曲线与对角线之间
+          按样本量加权的差距。
         </p>
       }
       figure={
@@ -310,10 +309,10 @@ function CalibrationChart() {
 
 registerChart({
   id: 'calibration-curve',
-  title: 'Calibration Curve',
-  titleZh: '校准曲线',
+  title: '校准曲线',
+  titleEn: 'Calibration Curve',
   category: 'evaluation',
   summary:
-    'Reliability diagram with per-bin marker size encoding sample count, plus ECE for each model.',
+    '可靠性图，以每分箱的标记大小编码样本量，并呈现各模型的 ECE。',
   component: CalibrationChart,
 });
