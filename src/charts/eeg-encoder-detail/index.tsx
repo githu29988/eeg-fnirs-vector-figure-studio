@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { FigureFrame } from '../../components/FigureFrame';
 import { ChartShell } from '../../components/ChartShell';
@@ -23,7 +24,13 @@ import {
   type PanelDragSlot,
   type PanelBasePosition,
 } from '../../lib/usePanelDrag';
+import { useSvgPointDrag } from '../../lib/useSvgPointDrag';
 import { registerChart } from '../../registry';
+
+/** Identifies which arrow handle the user is currently dragging. */
+type EdgeDragTag =
+  | { kind: 'endpoint'; edgeId: string; which: 'from' | 'to' }
+  | { kind: 'waypoint'; edgeId: string; index: number };
 
 /* ----------------------------- types -----------------------------------*/
 
@@ -156,6 +163,13 @@ interface EdgeOverride {
   /** Label offset relative to the midpoint (px). */
   labelDx?: number;
   labelDy?: number;
+  /** Optional intermediate waypoints in absolute SVG coordinates.
+   *  When present, the arrow is rendered as a polyline that visits
+   *  each waypoint in order between the source anchor and the
+   *  destination anchor. Add by Shift+clicking the path; drag the
+   *  small white-filled handles to reposition; Shift+click a
+   *  handle to remove it. */
+  waypoints?: { x: number; y: number }[];
 }
 
 type EdgeOverrideMap = Record<string, EdgeOverride>;
@@ -907,6 +921,8 @@ function EegEncoderDetailChart() {
     svgRef,
     slots: dragData.slots,
     basePositions: dragData.basePositions,
+    canvasW: W,
+    canvasH: H,
     onDrag: useCallback(
       (panelId: string, dx: number, dy: number) => {
         // Round to integers to keep saved configs tidy. dx/dy === 0 is
@@ -920,6 +936,123 @@ function EegEncoderDetailChart() {
       [updatePanelOverride],
     ),
   });
+
+  /* ------------------ edge endpoint / waypoint drag --------------------*/
+
+  // Snap targets for arrow handles: every panel's perimeter sampled
+  // at the four cardinal mid-points and the four corners. This gives
+  // 8 magnet points per panel, which is enough for typical "attach
+  // arrow to module corner / center of edge" routing without
+  // overwhelming the snap search with hundreds of candidates.
+  const edgeSnapPoints = useMemo<{ x: number; y: number }[]>(() => {
+    const out: { x: number; y: number }[] = [];
+    for (const slot of panelMap.values()) {
+      out.push(
+        { x: slot.x, y: slot.y },
+        { x: slot.x + slot.w, y: slot.y },
+        { x: slot.x, y: slot.y + slot.h },
+        { x: slot.x + slot.w, y: slot.y + slot.h },
+        { x: slot.x + slot.w / 2, y: slot.y },
+        { x: slot.x + slot.w / 2, y: slot.y + slot.h },
+        { x: slot.x, y: slot.y + slot.h / 2 },
+        { x: slot.x + slot.w, y: slot.y + slot.h / 2 },
+      );
+    }
+    return out;
+  }, [panelMap]);
+
+  const edgeDrag = useSvgPointDrag<EdgeDragTag>({
+    svgRef,
+    getSnapTargets: useCallback(() => ({ points: edgeSnapPoints }), [
+      edgeSnapPoints,
+    ]),
+    onMove: useCallback(
+      (tag: EdgeDragTag, x: number, y: number) => {
+        if (tag.kind === 'endpoint') {
+          // For an endpoint we persist a delta from the panel anchor
+          // base point so resizing / repositioning the panel still
+          // carries the endpoint along. Look up the spec to compute
+          // the anchor's current absolute position.
+          const edge = EEG_ENCODER_EDGES.find((e) => e.id === tag.edgeId);
+          if (!edge) return;
+          const slot = panelMap.get(tag.which === 'from' ? edge.from : edge.to);
+          if (!slot) return;
+          const anchor =
+            tag.which === 'from' ? edge.fromAnchor ?? 'right' : edge.toAnchor ?? 'left';
+          const yFrac =
+            tag.which === 'from' ? edge.fromYFrac ?? 0.5 : edge.toYFrac ?? 0.5;
+          const base = anchorPoint(slot, anchor, yFrac);
+          const dx = Math.round((x - base.x) * 10) / 10;
+          const dy = Math.round((y - base.y) * 10) / 10;
+          updateEdgeOverride(tag.edgeId, {
+            ...(tag.which === 'from'
+              ? { fromDx: dx || undefined, fromDy: dy || undefined }
+              : { toDx: dx || undefined, toDy: dy || undefined }),
+          });
+        } else {
+          // Waypoint stored in absolute SVG coords.
+          setEdgeOverrides((prev) => {
+            const cur = prev[tag.edgeId] ?? {};
+            const wps = cur.waypoints ? [...cur.waypoints] : [];
+            wps[tag.index] = {
+              x: Math.round(x * 10) / 10,
+              y: Math.round(y * 10) / 10,
+            };
+            const next: EdgeOverride = { ...cur, waypoints: wps };
+            return { ...prev, [tag.edgeId]: next };
+          });
+        }
+      },
+      [panelMap, updateEdgeOverride],
+    ),
+  });
+
+  /** Insert a new waypoint into an edge at (x, y). The new waypoint
+   *  is appended unless a click-position-based segment index is
+   *  given (e.g. when the user shift-clicks the path between
+   *  waypoint 1 and waypoint 2). */
+  const insertWaypoint = useCallback(
+    (edgeId: string, x: number, y: number, segmentIndex?: number) => {
+      setEdgeOverrides((prev) => {
+        const cur = prev[edgeId] ?? {};
+        const wps = cur.waypoints ? [...cur.waypoints] : [];
+        const insertAt =
+          typeof segmentIndex === 'number'
+            ? Math.max(0, Math.min(wps.length, segmentIndex))
+            : wps.length;
+        wps.splice(insertAt, 0, {
+          x: Math.round(x * 10) / 10,
+          y: Math.round(y * 10) / 10,
+        });
+        const next: EdgeOverride = { ...cur, waypoints: wps };
+        return { ...prev, [edgeId]: next };
+      });
+    },
+    [],
+  );
+
+  /** Delete a waypoint by index. */
+  const removeWaypoint = useCallback((edgeId: string, index: number) => {
+    setEdgeOverrides((prev) => {
+      const cur = prev[edgeId];
+      if (!cur || !cur.waypoints) return prev;
+      const wps = cur.waypoints.filter((_, i) => i !== index);
+      const next: EdgeOverride =
+        wps.length === 0
+          ? (() => {
+              const { waypoints: _wp, ...rest } = cur;
+              void _wp;
+              return rest;
+            })()
+          : { ...cur, waypoints: wps };
+      if (Object.keys(next).length === 0) {
+        const { [edgeId]: _drop, ...rest } = prev;
+        void _drop;
+        return rest;
+      }
+      return { ...prev, [edgeId]: next };
+    });
+  }, []);
 
   /* ----------------------- expert schema -------------------------------*/
 
@@ -1289,6 +1422,7 @@ function EegEncoderDetailChart() {
               const fy = aPt.y + (ov?.fromDy ?? 0);
               const tx = bPt.x + (ov?.toDx ?? 0);
               const ty = bPt.y + (ov?.toDy ?? 0);
+              const waypoints = ov?.waypoints ?? [];
 
               const style: EdgeStyle = e.style ?? 'solid';
               const dash =
@@ -1302,49 +1436,124 @@ function EegEncoderDetailChart() {
               const labelDx = ov?.labelDx ?? 0;
               const labelDy = ov?.labelDy ?? 0;
               const isSelected = selectedEdgeId === e.id;
+              const path = edgePath(fx, fy, tx, ty, fromAnchor, toAnchor, waypoints);
 
               return (
-                <g
-                  key={e.id}
-                  onClick={(ev) => {
-                    ev.stopPropagation();
-                    setSelectedEdgeId(e.id);
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {/* invisible thick path for easier click hit */}
+                <g key={e.id}>
+                  {/* Invisible thick hit path. Click to select, Shift+click to
+                       insert a new waypoint at the click position. */}
                   <path
                     data-export="false"
-                    d={curvePath(fx, fy, tx, ty, fromAnchor, toAnchor)}
+                    d={path}
                     fill="none"
                     stroke="transparent"
-                    strokeWidth={12}
+                    strokeWidth={14}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      setSelectedEdgeId(e.id);
+                      if (ev.shiftKey) {
+                        const svg = svgRef.current;
+                        const ctm = svg?.getScreenCTM();
+                        if (svg && ctm) {
+                          const pt = new DOMPoint(
+                            ev.clientX,
+                            ev.clientY,
+                          ).matrixTransform(ctm.inverse());
+                          // Pick the segment whose midpoint is
+                          // closest to the click — the new waypoint
+                          // is inserted between the two endpoints of
+                          // that segment so the user's intent
+                          // ("split this segment") matches.
+                          const segPts = [
+                            { x: fx, y: fy },
+                            ...waypoints,
+                            { x: tx, y: ty },
+                          ];
+                          let bestSeg = 0;
+                          let bestD = Infinity;
+                          for (let i = 0; i < segPts.length - 1; i++) {
+                            const mx = (segPts[i].x + segPts[i + 1].x) / 2;
+                            const my = (segPts[i].y + segPts[i + 1].y) / 2;
+                            const d = Math.hypot(mx - pt.x, my - pt.y);
+                            if (d < bestD) {
+                              bestD = d;
+                              bestSeg = i;
+                            }
+                          }
+                          insertWaypoint(e.id, pt.x, pt.y, bestSeg);
+                        }
+                      }
+                    }}
                   />
                   <path
-                    d={curvePath(fx, fy, tx, ty, fromAnchor, toAnchor)}
+                    d={path}
                     fill="none"
                     stroke={PALETTE[e.category].edge}
                     strokeWidth={e.thickness ?? 1.6}
                     strokeDasharray={dash}
                     markerEnd={`url(#arch-arrow-${e.category})`}
+                    pointerEvents="none"
                   />
                   {isSelected ? (
-                    <>
-                      <circle
-                        data-export="false"
-                        cx={fx}
-                        cy={fy}
-                        r={4}
-                        fill="#5b8def"
+                    <g data-export="false">
+                      {/* Endpoint handles — drag to reposition.
+                          Snap-to-panel-edge magnets activate within
+                          8 px of any module corner / edge mid-point. */}
+                      <EdgeHandle
+                        x={fx}
+                        y={fy}
+                        kind="endpoint"
+                        onPointerDown={(ev) =>
+                          edgeDrag.beginDrag(
+                            { kind: 'endpoint', edgeId: e.id, which: 'from' },
+                            fx,
+                            fy,
+                            ev,
+                          )
+                        }
+                        onPointerMove={edgeDrag.onPointerMove}
+                        onPointerUp={edgeDrag.onPointerUp}
                       />
-                      <circle
-                        data-export="false"
-                        cx={tx}
-                        cy={ty}
-                        r={4}
-                        fill="#5b8def"
+                      <EdgeHandle
+                        x={tx}
+                        y={ty}
+                        kind="endpoint"
+                        onPointerDown={(ev) =>
+                          edgeDrag.beginDrag(
+                            { kind: 'endpoint', edgeId: e.id, which: 'to' },
+                            tx,
+                            ty,
+                            ev,
+                          )
+                        }
+                        onPointerMove={edgeDrag.onPointerMove}
+                        onPointerUp={edgeDrag.onPointerUp}
                       />
-                    </>
+                      {waypoints.map((wp, i) => (
+                        <EdgeHandle
+                          key={`wp-${i}`}
+                          x={wp.x}
+                          y={wp.y}
+                          kind="waypoint"
+                          onPointerDown={(ev) => {
+                            if (ev.shiftKey) {
+                              ev.stopPropagation();
+                              removeWaypoint(e.id, i);
+                              return;
+                            }
+                            edgeDrag.beginDrag(
+                              { kind: 'waypoint', edgeId: e.id, index: i },
+                              wp.x,
+                              wp.y,
+                              ev,
+                            );
+                          }}
+                          onPointerMove={edgeDrag.onPointerMove}
+                          onPointerUp={edgeDrag.onPointerUp}
+                        />
+                      ))}
+                    </g>
                   ) : null}
                   {labelText ? (
                     <foreignObject
@@ -1355,6 +1564,7 @@ function EegEncoderDetailChart() {
                       data-latex={labelText}
                       data-latex-font-size={10}
                       data-latex-align="left"
+                      pointerEvents="none"
                     >
                       <LatexLine
                         text={labelText}
@@ -1368,6 +1578,25 @@ function EegEncoderDetailChart() {
               );
             })}
           </g>
+
+          {/* edge handle snap-target indicator (preview-only) */}
+          {edgeDrag.guides.points.length > 0 ? (
+            <g data-export="false">
+              {edgeDrag.guides.points.map((p, i) => (
+                <circle
+                  key={`esp-${i}`}
+                  cx={p.x}
+                  cy={p.y}
+                  r={6}
+                  fill="none"
+                  stroke="#5b8def"
+                  strokeWidth={1.5}
+                  strokeDasharray="2 2"
+                  opacity={0.9}
+                />
+              ))}
+            </g>
+          ) : null}
 
           {/* panels — wrapped in a per-panel <g> that owns the drag /
                snap pointer handlers so the figure can be re-arranged
@@ -1442,30 +1671,30 @@ function EegEncoderDetailChart() {
                cue. */}
           {drag.guides.v.length > 0 || drag.guides.h.length > 0 ? (
             <g data-export="false">
-              {drag.guides.v.map((gx, i) => (
+              {drag.guides.v.map((g, i) => (
                 <line
                   key={`gv-${i}`}
-                  x1={gx}
+                  x1={g.coord}
                   y1={0}
-                  x2={gx}
+                  x2={g.coord}
                   y2={H}
-                  stroke="#5b8def"
+                  stroke={g.source === 'canvas' ? '#d97a3a' : '#5b8def'}
                   strokeWidth={1}
                   strokeDasharray="4 3"
-                  opacity={0.75}
+                  opacity={0.85}
                 />
               ))}
-              {drag.guides.h.map((gy, i) => (
+              {drag.guides.h.map((g, i) => (
                 <line
                   key={`gh-${i}`}
                   x1={0}
-                  y1={gy}
+                  y1={g.coord}
                   x2={W}
-                  y2={gy}
-                  stroke="#5b8def"
+                  y2={g.coord}
+                  stroke={g.source === 'canvas' ? '#d97a3a' : '#5b8def'}
                   strokeWidth={1}
                   strokeDasharray="4 3"
-                  opacity={0.75}
+                  opacity={0.85}
                 />
               ))}
             </g>
@@ -1583,6 +1812,38 @@ function curvePath(
     return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
   }
   return `M${x1},${y1} L${x2},${y2}`;
+}
+
+/**
+ * Build the SVG path for an edge that may have user-added waypoints.
+ * - 0 waypoints  → curvePath (smooth bezier or straight, by anchor pair)
+ * - 1+ waypoints → straight polyline through all points
+ *
+ * The polyline form is intentionally simple so dragging a waypoint
+ * predictably reshapes the route, mirroring how Figma / Lucid /
+ * draw.io handle bend points. Smoothing is reserved for the
+ * no-waypoint case where the arrow's shape is fully implicit.
+ */
+function edgePath(
+  fx: number,
+  fy: number,
+  tx: number,
+  ty: number,
+  fromAnchor: Anchor,
+  toAnchor: Anchor,
+  waypoints: { x: number; y: number }[] | undefined,
+): string {
+  if (!waypoints || waypoints.length === 0) {
+    return curvePath(fx, fy, tx, ty, fromAnchor, toAnchor);
+  }
+  const pts: { x: number; y: number }[] = [
+    { x: fx, y: fy },
+    ...waypoints,
+    { x: tx, y: ty },
+  ];
+  return pts
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`)
+    .join(' ');
 }
 
 interface PanelProps {
@@ -1898,6 +2159,50 @@ interface LatexLineProps {
   autoFit?: boolean;
   /** Optional click handler. Cursor turns to pointer when provided. */
   onClick?: () => void;
+}
+
+/**
+ * Draggable circular handle for arrow endpoints / waypoints.
+ * Endpoints render as solid blue dots, waypoints as smaller white-fill
+ * blue-stroke dots so the two are visually distinct. The handle is a
+ * `<g>` because we need both an outer transparent halo (large click
+ * target) and the visible filled circle (small visual indicator) to
+ * share pointer events.
+ */
+function EdgeHandle({
+  x,
+  y,
+  kind,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  x: number;
+  y: number;
+  kind: 'endpoint' | 'waypoint';
+  onPointerDown: (e: ReactPointerEvent<Element>) => void;
+  onPointerMove: (e: ReactPointerEvent<Element>) => void;
+  onPointerUp: (e: ReactPointerEvent<Element>) => void;
+}) {
+  return (
+    <g
+      data-export="false"
+      style={{ cursor: 'grab', touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+    >
+      <circle cx={x} cy={y} r={9} fill="transparent" />
+      <circle
+        cx={x}
+        cy={y}
+        r={kind === 'endpoint' ? 4.5 : 3.8}
+        fill={kind === 'endpoint' ? '#5b8def' : '#ffffff'}
+        stroke={kind === 'endpoint' ? '#3050a0' : '#5b8def'}
+        strokeWidth={kind === 'endpoint' ? 1 : 1.5}
+      />
+    </g>
+  );
 }
 
 /**
@@ -2557,6 +2862,22 @@ function EdgeEditor({
         step={1}
         onChange={(v) => onPatch({ labelDy: v === 0 ? undefined : v })}
       />
+      <div className="space-y-1 pt-1">
+        <p className="text-[11px] font-medium text-ink-200">
+          拐点（{(override?.waypoints ?? []).length}）
+        </p>
+        <p className="text-[10px] leading-snug text-ink-400">
+          预览中 Shift+点击箭头插入拐点；拖拽白色圆点移动；Shift+点击拐点删除。靠近模块边缘会自动吸附。
+        </p>
+        <button
+          type="button"
+          disabled={!override?.waypoints?.length}
+          onClick={() => onPatch({ waypoints: undefined })}
+          className="rounded border border-ink-600 bg-ink-800 px-2 py-1 text-[11px] text-ink-100 hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          清空所有拐点
+        </button>
+      </div>
       <div className="flex flex-wrap gap-2 pt-1">
         <button
           type="button"
