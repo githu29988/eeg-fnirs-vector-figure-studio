@@ -18,6 +18,11 @@ import {
 import type { ExpertSchema } from '../../components/ExpertPanel';
 import { InspirationPanel } from '../../components/InspirationPanel';
 import { renderInlineLatex } from '../../lib/latex';
+import {
+  usePanelDrag,
+  type PanelDragSlot,
+  type PanelBasePosition,
+} from '../../lib/usePanelDrag';
 import { registerChart } from '../../registry';
 
 /* ----------------------------- types -----------------------------------*/
@@ -909,6 +914,42 @@ function FnirsEncoderDetailChart() {
     panelTop,
   ]);
 
+  // Drag-and-snap support for direct panel manipulation in the
+  // preview SVG. Slots feed the alignment-guide search; basePositions
+  // tell the hook what the panel's grid origin is so a new dx/dy
+  // override can be computed as `newX - baseX`.
+  const dragData = useMemo(() => {
+    const slots: PanelDragSlot[] = [];
+    const basePositions = new Map<string, PanelBasePosition>();
+    for (const [id, slot] of panelMap.entries()) {
+      const ov = panelOverrides[id];
+      slots.push({ id, x: slot.x, y: slot.y, w: slot.w, h: slot.h });
+      basePositions.set(id, {
+        x: slot.x - (ov?.dx ?? 0),
+        y: slot.y - (ov?.dy ?? 0),
+      });
+    }
+    return { slots, basePositions };
+  }, [panelMap, panelOverrides]);
+
+  const drag = usePanelDrag({
+    svgRef,
+    slots: dragData.slots,
+    basePositions: dragData.basePositions,
+    onDrag: useCallback(
+      (panelId: string, dx: number, dy: number) => {
+        // Round to integers to keep saved configs tidy. dx/dy === 0 is
+        // pruned by `pruneOverride` so panels dragged back to their
+        // baseline reset cleanly.
+        updatePanelOverride(panelId, {
+          dx: Math.round(dx) || undefined,
+          dy: Math.round(dy) || undefined,
+        });
+      },
+      [updatePanelOverride],
+    ),
+  });
+
   /* ----------------------- expert schema -------------------------------*/
 
   const expertSchema: ExpertSchema = [
@@ -1473,43 +1514,107 @@ function FnirsEncoderDetailChart() {
             })}
           </g>
 
-          {/* panels */}
+          {/* panels — wrapped in a per-panel <g> that owns the drag /
+               snap pointer handlers so the figure can be re-arranged
+               directly in the preview. The wrapper is invisible (no
+               geometry of its own) so it never interferes with the
+               exported SVG; pointer capture means moves outside the
+               panel still drive the drag until the user releases. */}
           <g>
             {resolvedPanels.map((p) => {
               const slot = panelMap.get(p.id);
               if (!slot) return null;
               const ov = panelOverrides[p.id];
+              const isDraggingThis = drag.draggingId === p.id;
               return (
-                <Panel
+                <g
                   key={p.id}
-                  spec={p}
-                  x={slot.x}
-                  y={slot.y}
-                  w={slot.w}
-                  h={slot.h}
-                  headerSize={ov?.headerSize ?? headerSize}
-                  bodySize={ov?.bodySize ?? bodySize}
-                  lineSpacing={ov?.lineSpacing ?? 1.5}
-                  headerAlign={ov?.headerAlign ?? 'center'}
-                  bodyAlign={ov?.bodyAlign ?? 'center'}
-                  bodyAutoFit={ov?.bodyAutoFit ?? false}
-                  isSelected={selectedPanelId === p.id}
-                  onSelect={() => {
+                  data-panel-id={p.id}
+                  style={{
+                    cursor: isDraggingThis ? 'grabbing' : 'grab',
+                    touchAction: 'none',
+                  }}
+                  onPointerDown={(e) => {
                     setSelectedPanelId(p.id);
                     setSelectedBodyLine(null);
+                    drag.onPointerDown(p.id, e);
                   }}
-                  onSelectHeader={() => requestFocusHeader(p.id)}
-                  onSelectBodyLine={(idx) => requestFocusBodyLine(p.id, idx)}
-                  lineOverrides={ov?.lineOverrides}
-                  highlightedLineIndex={
-                    selectedBodyLine?.panelId === p.id
-                      ? selectedBodyLine.lineIndex
-                      : undefined
-                  }
-                />
+                  onPointerMove={drag.onPointerMove}
+                  onPointerUp={drag.onPointerUp}
+                  onPointerCancel={drag.onPointerUp}
+                >
+                  <Panel
+                    spec={p}
+                    x={slot.x}
+                    y={slot.y}
+                    w={slot.w}
+                    h={slot.h}
+                    headerSize={ov?.headerSize ?? headerSize}
+                    bodySize={ov?.bodySize ?? bodySize}
+                    lineSpacing={ov?.lineSpacing ?? 1.5}
+                    headerAlign={ov?.headerAlign ?? 'center'}
+                    bodyAlign={ov?.bodyAlign ?? 'center'}
+                    bodyAutoFit={ov?.bodyAutoFit ?? false}
+                    isSelected={selectedPanelId === p.id}
+                    onSelect={() => {
+                      if (drag.consumeDragSuppression()) return;
+                      setSelectedPanelId(p.id);
+                      setSelectedBodyLine(null);
+                    }}
+                    onSelectHeader={() => {
+                      if (drag.consumeDragSuppression()) return;
+                      requestFocusHeader(p.id);
+                    }}
+                    onSelectBodyLine={(idx) => {
+                      if (drag.consumeDragSuppression()) return;
+                      requestFocusBodyLine(p.id, idx);
+                    }}
+                    lineOverrides={ov?.lineOverrides}
+                    highlightedLineIndex={
+                      selectedBodyLine?.panelId === p.id
+                        ? selectedBodyLine.lineIndex
+                        : undefined
+                    }
+                  />
+                </g>
               );
             })}
           </g>
+
+          {/* alignment guides during a drag — preview-only, never
+               exported. Length = full canvas so the guide reads as a
+               clear "this edge / center is locked to that other edge"
+               cue. */}
+          {drag.guides.v.length > 0 || drag.guides.h.length > 0 ? (
+            <g data-export="false">
+              {drag.guides.v.map((gx, i) => (
+                <line
+                  key={`gv-${i}`}
+                  x1={gx}
+                  y1={0}
+                  x2={gx}
+                  y2={H}
+                  stroke="#5b8def"
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  opacity={0.75}
+                />
+              ))}
+              {drag.guides.h.map((gy, i) => (
+                <line
+                  key={`gh-${i}`}
+                  x1={0}
+                  y1={gy}
+                  x2={W}
+                  y2={gy}
+                  stroke="#5b8def"
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  opacity={0.75}
+                />
+              ))}
+            </g>
+          ) : null}
 
           {/* annotations (on top of panels) */}
           <g>
