@@ -4,13 +4,24 @@ import mathjaxPkg from 'mathjax-full/package.json'
 
 // https://vite.dev/config/
 //
-// `base` is set so `npm run build` produces asset URLs that work both
-// when the bundle is served at the root (e.g. `dist/index.html` opened
-// via `file://`) and when it is served under the project Pages path
-// (`https://<user>.github.io/<repo>/`). Set `BASE_PATH` in the build
-// environment to override (e.g. `BASE_PATH=/ npm run build` for a
-// custom domain or root deploy).
-const basePath = process.env.BASE_PATH ?? '/960eeg-fnirs-vector-figure-studio/'
+// `base` is set so `npm run build` produces asset URLs that work when
+// the bundle is served under the project Pages path
+// (`https://<user>.github.io/<repo>/`). Resolution order:
+//   1. Explicit `BASE_PATH` env var wins (e.g. `BASE_PATH=/ npm run build`
+//      for a custom domain or root deploy).
+//   2. On GitHub Actions, derive `/repo-name/` from `GITHUB_REPOSITORY`
+//      so any fork's deploy workflow Just Works without editing this file.
+//   3. Fall back to `/eeg-fnirs-vector-figure-studio/` for local builds.
+function resolveBasePath(): string {
+  if (process.env.BASE_PATH) return process.env.BASE_PATH
+  const repo = process.env.GITHUB_REPOSITORY
+  if (repo && repo.includes('/')) {
+    const name = repo.split('/')[1]
+    return `/${name}/`
+  }
+  return '/eeg-fnirs-vector-figure-studio/'
+}
+const basePath = resolveBasePath()
 
 export default defineConfig({
   base: basePath,
