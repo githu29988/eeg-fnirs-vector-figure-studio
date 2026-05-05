@@ -21,4 +21,5 @@ import './architecture-overall';
 import './eeg-encoder-detail';
 import './fnirs-encoder-detail';
 import './gat-cmc-overall';
+import './heterogeneous-graph-construction';
 
