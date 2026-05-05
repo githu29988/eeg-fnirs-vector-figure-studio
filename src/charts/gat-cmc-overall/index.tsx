@@ -56,6 +56,26 @@ const EDGE_STYLE_OPTIONS: ReadonlyArray<{ value: EdgeStyle; label: string }> = [
   { value: 'dotted', label: '点线' },
 ];
 
+/**
+ * Optional v2 visual decoration drawn at the bottom of a panel.
+ *
+ * Each kind reserves a fixed-height band inside the panel and draws a
+ * paper-grade SVG illustration that complements the textual body (e.g.
+ * an adjacency-matrix thumbnail next to the input panels, a 3D
+ * "lollipop" graph next to the per-modality GATs). The renderers are
+ * pure SVG with deterministic seeded values, so exports stay vector
+ * and reproducible.
+ */
+type VizKind =
+  | 'adj-eeg'
+  | 'adj-fnirs'
+  | 'adj-het'
+  | 'lollipop-eeg'
+  | 'lollipop-fnirs'
+  | 'hrf-kernel'
+  | 'gate-bars'
+  | 'event-output';
+
 interface PanelSpec {
   id: string;
   col: number;
@@ -67,6 +87,11 @@ interface PanelSpec {
   header: string;
   /** Each entry is a single line; '' means an empty spacer. */
   body: string[];
+  /**
+   * Optional decorative SVG drawn at the bottom of the panel. Reserves
+   * a fixed-height band; body lines should be trimmed to leave room.
+   */
+  viz?: VizKind;
 }
 
 /**
@@ -269,11 +294,10 @@ const GAT_CMC_PANELS: PanelSpec[] = [
     header: 'EEG  Input',
     body: [
       '$\\mathbf{X}^{E}\\!\\in\\!\\mathbb{R}^{N_E\\times T_E}$',
-      '$N_E = 18$  channels',
-      '$f_E = 256$  Hz',
+      '$N_E\\!=\\!18$,  $f_E\\!=\\!256$  Hz',
       'window  $W = 30$  s',
-      'CHB-MIT  /  TUSZ',
     ],
+    viz: 'adj-eeg',
   },
   {
     id: 'in-fnirs',
@@ -283,11 +307,10 @@ const GAT_CMC_PANELS: PanelSpec[] = [
     header: 'fNIRS  Input  ·  HbO + HbR',
     body: [
       '$\\mathbf{X}^{F}\\!\\in\\!\\mathbb{R}^{N_F\\times T_F\\times 2}$',
-      '$N_F = 24$  channels  ×  2',
-      '$f_F = 10$  Hz',
-      'window  $W = 30$  s',
+      '$N_F\\!=\\!24$,  $f_F\\!=\\!10$  Hz',
       'concurrent  EEG+fNIRS  cap',
     ],
+    viz: 'adj-fnirs',
   },
   // Col 1 — Per-modality multi-head GAT
   {
@@ -297,11 +320,11 @@ const GAT_CMC_PANELS: PanelSpec[] = [
     category: 'temporal',
     header: 'GAT  ·  EEG  branch',
     body: [
-      'k-NN  graph  on  band-power',
-      'multi-head,  $K = 4$',
-      '$d = 64$,  dropout 0.1',
-      'attention  →  link  weight',
+      'k-NN  on  band-power',
+      'multi-head,  $K\\!=\\!4$',
+      '$d\\!=\\!64$,  dropout 0.1',
     ],
+    viz: 'lollipop-eeg',
   },
   {
     id: 'gat-fnirs',
@@ -311,10 +334,10 @@ const GAT_CMC_PANELS: PanelSpec[] = [
     header: 'GAT  ·  fNIRS  branch',
     body: [
       'k-NN  on  hemo  signature',
-      'multi-head,  $K = 4$',
-      '$d = 64$,  shared  weights',
+      'multi-head,  $K\\!=\\!4$',
       'HbO+HbR  channel-wise',
     ],
+    viz: 'lollipop-fnirs',
   },
   // Col 2 — HRF time-shift compensation block (key novelty).
   // EEG path is "identity" (electric is the reference); fNIRS path
@@ -339,11 +362,11 @@ const GAT_CMC_PANELS: PanelSpec[] = [
     category: 'spectral',
     header: 'HRF  Soft-Shift',
     body: [
-      'learnable  $\\tau_c\\in[0, \\tau_{\\max}]$  per  channel',
+      'learnable  $\\tau_c\\!\\in\\![0, \\tau_{\\max}]$',
       '$\\tilde{\\mathbf{h}}^{F}_c\\!=\\!\\mathbf{h}^{F}_c\\!\\star\\!\\delta_{\\sigma}(t\\!-\\!\\tau_c)$',
-      'soft  delta  kernel  (Gaussian)',
-      'aligns  hemo  to  electric  onset',
+      'aligns  hemo  to  onset',
     ],
+    viz: 'hrf-kernel',
   },
   // Col 3 — Heterogeneous multi-head GAT (spans both rows)
   {
@@ -361,8 +384,9 @@ const GAT_CMC_PANELS: PanelSpec[] = [
       '$\\alpha^{(r)}_{ij}\\!=\\!\\mathrm{softmax}_j(e^{(r)}_{ij})$',
       '',
       'multi-head  $K = 8$,  $d_h = 64$',
-      'attention  weights  →  interpretable',
+      'attention  →  interpretable',
     ],
+    viz: 'adj-het',
   },
   // Col 4 — Gated cross-modal fusion (spans both rows)
   {
@@ -381,6 +405,7 @@ const GAT_CMC_PANELS: PanelSpec[] = [
       'sample-adaptive  weighting',
       'sparse  $L_1$  prior  on  $g$',
     ],
+    viz: 'gate-bars',
   },
   // Col 5 — Classifier + Event Decoder + Output (spans both rows)
   {
@@ -394,14 +419,14 @@ const GAT_CMC_PANELS: PanelSpec[] = [
       'BiGRU  +  2D-CNN  readout',
       'window  logits  $p_t\\!\\in\\![0,1]$',
       '',
-      'event  decoder:',
-      'merge  consecutive  $p_t\\!>\\!0.5$  windows',
-      'min  duration  10 s,  refractory 30 s',
+      'merge  $p_t\\!>\\!0.5$  windows',
+      'min  10 s,  refractory  30 s',
       '',
-      '$\\mathrm{Output}\\!\\in\\!\\{\\,\\mathrm{Ictal},\\,\\mathrm{Non\\text{-}ictal}\\,\\}$',
+      '$\\mathrm{Out}\\!\\in\\!\\{\\,\\mathrm{Ictal},\\,\\mathrm{Non\\text{-}ictal}\\,\\}$',
       'event-level  SE ↑ , FA/h ↓',
       'LOSO  patient-independent',
     ],
+    viz: 'event-output',
   },
 ];
 
@@ -509,12 +534,12 @@ function downloadJson(filename: string, data: unknown) {
 /* --------------------------- chart impl --------------------------------*/
 
 function GatCmcDetailChart() {
-  const [colSpacing, setColSpacing] = useState(180);
-  const [rowSpacing, setRowSpacing] = useState(170);
-  const [panelWidth, setPanelWidth] = useState(170);
-  const [panelHeight, setPanelHeight] = useState(130);
+  const [colSpacing, setColSpacing] = useState(200);
+  const [rowSpacing, setRowSpacing] = useState(220);
+  const [panelWidth, setPanelWidth] = useState(180);
+  const [panelHeight, setPanelHeight] = useState(180);
   const [headerSize, setHeaderSize] = useState(13);
-  const [bodySize, setBodySize] = useState(11);
+  const [bodySize, setBodySize] = useState(10.5);
   const [showLegend, setShowLegend] = useState(true);
   const [showSubtitle, setShowSubtitle] = useState(true);
 
@@ -1189,15 +1214,15 @@ function GatCmcDetailChart() {
           presets={[
             {
               id: 'gat-cmc-default',
-              label: 'GAT-CMC-Net (Fig. 1)',
+              label: 'GAT-CMC-Net (Fig. 1, v2)',
               hint: '出版级',
               description:
-                'GAT-CMC-Net 整体架构（EEG-fNIRS 异质图 + 可学习 HRF 软位移 + 多头 GAT + 门控跨模态融合 + 事件级解码）。默认英文期刊版，清空所有自定义状态。',
+                'GAT-CMC-Net 整体架构（EEG-fNIRS 异质图 + 可学习 HRF 软位移 + 多头 GAT + 门控跨模态融合 + 事件级解码）。v2：每个模块下方挂出可视化（邻接矩阵 / 棒棒糖节点图 / HRF 软核 / 门控向量 / 事件级输出）。',
               apply: () => {
-                setColSpacing(190);
-                setRowSpacing(190);
-                setPanelWidth(170);
-                setPanelHeight(150);
+                setColSpacing(200);
+                setRowSpacing(220);
+                setPanelWidth(180);
+                setPanelHeight(180);
                 setHeaderSize(13);
                 setBodySize(10.5);
                 setShowLegend(true);
@@ -1213,12 +1238,12 @@ function GatCmcDetailChart() {
               label: '中文标注版',
               hint: '中文',
               description:
-                '把面板文字切成简体中文（仅用于研讨/讲解；导出 SVG/PNG 给期刊前一键切回 GAT-CMC-Net (Fig. 1) 即可恢复英文）。',
+                '把面板文字切成简体中文（仅用于研讨/讲解；导出 SVG/PNG 给期刊前一键切回 GAT-CMC-Net (Fig. 1, v2) 即可恢复英文）。可视化装饰保留。',
               apply: () => {
-                setColSpacing(190);
-                setRowSpacing(190);
-                setPanelWidth(180);
-                setPanelHeight(160);
+                setColSpacing(200);
+                setRowSpacing(220);
+                setPanelWidth(190);
+                setPanelHeight(190);
                 setHeaderSize(13);
                 setBodySize(10.5);
                 setShowLegend(true);
@@ -1276,37 +1301,31 @@ function GatCmcDetailChart() {
                     header: 'EEG  输入',
                     bodyText: [
                       '$\\mathbf{X}^{E}\\!\\in\\!\\mathbb{R}^{N_E\\times T_E}$',
-                      '$N_E = 18$  通道',
-                      '$f_E = 256$  Hz',
+                      '$N_E\\!=\\!18$,  $f_E\\!=\\!256$  Hz',
                       '窗口  $W = 30$  s',
-                      'CHB-MIT  /  TUSZ',
                     ].join('\n'),
                   },
                   'in-fnirs': {
                     header: 'fNIRS  输入  ·  HbO + HbR',
                     bodyText: [
                       '$\\mathbf{X}^{F}\\!\\in\\!\\mathbb{R}^{N_F\\times T_F\\times 2}$',
-                      '$N_F = 24$  通道  ×  2',
-                      '$f_F = 10$  Hz',
-                      '窗口  $W = 30$  s',
+                      '$N_F\\!=\\!24$,  $f_F\\!=\\!10$  Hz',
                       '同步  EEG+fNIRS  采集',
                     ].join('\n'),
                   },
                   'gat-eeg': {
                     header: 'GAT  ·  EEG  分支',
                     bodyText: [
-                      '基于  band-power  的  k-NN  图',
-                      '多头  $K = 4$',
-                      '$d = 64$,  dropout 0.1',
-                      '注意力权重  →  关键连接',
+                      '基于  band-power  的  k-NN',
+                      '多头  $K\\!=\\!4$',
+                      '$d\\!=\\!64$,  dropout 0.1',
                     ].join('\n'),
                   },
                   'gat-fnirs': {
                     header: 'GAT  ·  fNIRS  分支',
                     bodyText: [
-                      '基于血氧动力学相似度的  k-NN  图',
-                      '多头  $K = 4$',
-                      '$d = 64$,  共享权重',
+                      '基于血氧动力学的  k-NN',
+                      '多头  $K\\!=\\!4$',
                       'HbO + HbR  逐通道',
                     ].join('\n'),
                   },
@@ -1323,7 +1342,6 @@ function GatCmcDetailChart() {
                     bodyText: [
                       '逐通道可学习  $\\tau_c\\!\\in\\![0,\\tau_{\\max}]$',
                       '$\\tilde{\\mathbf{h}}^{F}_c\\!=\\!\\mathbf{h}^{F}_c\\!\\star\\!\\delta_{\\sigma}(t\\!-\\!\\tau_c)$',
-                      '高斯软  delta  核（可微）',
                       '将血流响应对齐到电信号起点',
                     ].join('\n'),
                   },
@@ -1358,11 +1376,10 @@ function GatCmcDetailChart() {
                       'BiGRU  +  2D-CNN  读出头',
                       '窗口  logits  $p_t\\!\\in\\![0,1]$',
                       '',
-                      '事件解码：',
                       '合并连续  $p_t\\!>\\!0.5$  的窗口',
                       '最短持续  10 s,  不应期  30 s',
                       '',
-                      '$\\mathrm{Output}\\!\\in\\!\\{\\,\\text{发作期},\\,\\text{非发作期}\\,\\}$',
+                      '$\\mathrm{Out}\\!\\in\\!\\{\\,\\text{发作期},\\,\\text{非发作期}\\,\\}$',
                       '事件级  SE ↑ , FA/h ↓',
                       'LOSO  患者独立',
                     ].join('\n'),
@@ -2028,6 +2045,849 @@ function edgePath(
     .join(' ');
 }
 
+/* =========================================================
+ * v2 visual decorations — paper-grade SVG illustrations
+ * mounted at the bottom of selected panels.
+ *
+ * All renderers are pure SVG (no <foreignObject>) so the export
+ * pipeline picks them up vectorially without any rasterization,
+ * and so MathJax replacement (which only touches `data-latex`
+ * fields) leaves them untouched. Every renderer draws inside a
+ * (vizW × vizH) box; the parent `<g>` translates them into place.
+ *
+ * Determinism: any pseudo-random shading uses a hash on (i,j)
+ * indices, never `Math.random()`. This keeps repeated exports
+ * byte-stable and SVG diff reviews quiet.
+ * ========================================================= */
+
+/** Default reserved height (px) for each viz band at the bottom
+ *  of a panel. Body lines should be trimmed so they don't overlap. */
+const VIZ_HEIGHT = 64;
+const VIZ_PAD_X = 10;
+const VIZ_PAD_BOTTOM = 8;
+
+/**
+ * Inferno-like 6-stop colour ramp (vector-friendly hex codes).
+ * Used for adjacency-matrix heatmaps. Index in [0,1].
+ */
+const INFERNO_STOPS = [
+  '#1b0c41',
+  '#4a0c6b',
+  '#a52c60',
+  '#ed6925',
+  '#fcb519',
+  '#f6f7be',
+];
+
+function infernoColor(t: number): string {
+  const x = Math.max(0, Math.min(1, t));
+  const n = INFERNO_STOPS.length - 1;
+  const idx = Math.min(n - 1, Math.floor(x * n));
+  return INFERNO_STOPS[idx + 1] === undefined
+    ? INFERNO_STOPS[idx]
+    : INFERNO_STOPS[idx + (x * n - idx > 0.5 ? 1 : 0)];
+}
+
+/** Deterministic [0,1) hash on a pair of integers. */
+function hash2(a: number, b: number, seed = 1): number {
+  const s = Math.sin((a * 374761393 + b * 668265263 + seed * 982451653) % 1e9);
+  return s - Math.floor(s);
+}
+
+interface VizProps {
+  vizW: number;
+  vizH: number;
+  /** Panel category edge colour, used for chrome (frame, ticks). */
+  edge: string;
+}
+
+/**
+ * Adjacency-matrix thumbnail. Draws an NxN grid of cells with
+ * inferno-mapped intensities. The diagonal is highlighted; the off-
+ * diagonal pattern is sparse + symmetric so it visually reads as
+ * "graph adjacency" rather than noise.
+ */
+function VizAdjacency({
+  vizW,
+  vizH,
+  edge,
+  n,
+  seed,
+  label,
+}: VizProps & { n: number; seed: number; label: string }) {
+  const inset = 2;
+  const labelH = 10;
+  const gridX = inset;
+  const gridY = inset + labelH;
+  const gridW = vizW - 2 * inset;
+  const gridH = vizH - 2 * inset - labelH;
+  const cell = Math.min(gridW / n, gridH / n);
+  const ox = gridX + (gridW - cell * n) / 2;
+  const oy = gridY + (gridH - cell * n) / 2;
+
+  const cells: React.ReactNode[] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      // Symmetric pattern: ~25% sparsity off-diagonal, diagonal always strong.
+      let v = 0;
+      if (i === j) {
+        v = 0.92;
+      } else {
+        const a = Math.min(i, j);
+        const b = Math.max(i, j);
+        const r = hash2(a, b, seed);
+        if (r < 0.28) v = 0.35 + 0.55 * hash2(a, b, seed + 7);
+      }
+      cells.push(
+        <rect
+          key={`${i}-${j}`}
+          x={ox + j * cell}
+          y={oy + i * cell}
+          width={cell}
+          height={cell}
+          fill={v > 0 ? infernoColor(v) : '#100620'}
+          stroke="none"
+        />,
+      );
+    }
+  }
+  return (
+    <g>
+      <text
+        x={vizW / 2}
+        y={inset + labelH - 1}
+        textAnchor="middle"
+        fontSize={8.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontStyle="italic"
+      >
+        {label}
+      </text>
+      {cells}
+      <rect
+        x={ox - 0.5}
+        y={oy - 0.5}
+        width={cell * n + 1}
+        height={cell * n + 1}
+        fill="none"
+        stroke={edge}
+        strokeOpacity={0.55}
+        strokeWidth={0.6}
+      />
+    </g>
+  );
+}
+
+/**
+ * Heterogeneous adjacency thumbnail with 4 quadrants: EE / EF / FE / FF.
+ * Quadrant separators are emphasized to reflect the joint EEG ∪ fNIRS
+ * node structure used by the heterogeneous multi-head GAT.
+ */
+function VizAdjHet({ vizW, vizH, edge }: VizProps) {
+  const inset = 2;
+  const labelH = 10;
+  const gridX = inset;
+  const gridY = inset + labelH;
+  const gridW = vizW - 2 * inset;
+  const gridH = vizH - 2 * inset - labelH;
+  // 12×12 grid: top-left 6×6 = EE, top-right 6×6 = EF, ...
+  const n = 12;
+  const cell = Math.min(gridW / n, gridH / n);
+  const ox = gridX + (gridW - cell * n) / 2;
+  const oy = gridY + (gridH - cell * n) / 2;
+  const half = n / 2;
+
+  const cells: React.ReactNode[] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const ei = i < half ? 0 : 1;
+      const ej = j < half ? 0 : 1;
+      // Different sparsity per quadrant: EE/FF denser, EF/FE sparser.
+      const sameMod = ei === ej;
+      const sparsity = sameMod ? 0.42 : 0.18;
+      let v = 0;
+      if (i === j) {
+        v = 0.92;
+      } else {
+        const a = Math.min(i, j);
+        const b = Math.max(i, j);
+        const r = hash2(a, b, sameMod ? 11 : 23);
+        if (r < sparsity)
+          v = 0.3 + 0.6 * hash2(a, b, sameMod ? 31 : 41);
+      }
+      cells.push(
+        <rect
+          key={`${i}-${j}`}
+          x={ox + j * cell}
+          y={oy + i * cell}
+          width={cell}
+          height={cell}
+          fill={v > 0 ? infernoColor(v) : '#100620'}
+          stroke="none"
+        />,
+      );
+    }
+  }
+  // Quadrant separators
+  const midX = ox + half * cell;
+  const midY = oy + half * cell;
+  return (
+    <g>
+      <text
+        x={vizW / 2}
+        y={inset + labelH - 1}
+        textAnchor="middle"
+        fontSize={8.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontStyle="italic"
+      >
+        Adj{'\u00A0'}=[EE|EF;{'\u00A0'}FE|FF]
+      </text>
+      {cells}
+      <line
+        x1={midX}
+        y1={oy}
+        x2={midX}
+        y2={oy + cell * n}
+        stroke="#fff"
+        strokeOpacity={0.85}
+        strokeWidth={0.7}
+      />
+      <line
+        x1={ox}
+        y1={midY}
+        x2={ox + cell * n}
+        y2={midY}
+        stroke="#fff"
+        strokeOpacity={0.85}
+        strokeWidth={0.7}
+      />
+      <rect
+        x={ox - 0.5}
+        y={oy - 0.5}
+        width={cell * n + 1}
+        height={cell * n + 1}
+        fill="none"
+        stroke={edge}
+        strokeOpacity={0.6}
+        strokeWidth={0.6}
+      />
+    </g>
+  );
+}
+
+/**
+ * 3D-perspective "lollipop" of graph node features: vertical columns
+ * (each column = a node feature dimension) arranged along a
+ * perspective floor with light connecting strokes. Mimics the
+ * MA-MP-GF figure's per-modality node-feature visualisation.
+ */
+function VizLollipop({
+  vizW,
+  vizH,
+  edge,
+  topColor,
+  label,
+  seed,
+}: VizProps & { topColor: string; label: string; seed: number }) {
+  const inset = 2;
+  const labelH = 10;
+  const ox = inset + 4;
+  const oy = inset + labelH;
+  const innerW = vizW - 2 * (inset + 4);
+  const innerH = vizH - 2 * inset - labelH - 2;
+
+  const N = 14;
+  const colW = innerW / (N + 2);
+  const baselineY = oy + innerH * 0.78;
+  const skewX = colW * 0.45; // perspective skew (top is shifted)
+  const skewY = -innerH * 0.08;
+
+  const cols: React.ReactNode[] = [];
+  const tops: { x: number; y: number }[] = [];
+  for (let i = 0; i < N; i++) {
+    const x0 = ox + (i + 1) * colW;
+    const r = hash2(i, 0, seed);
+    const colH = innerH * (0.18 + 0.6 * r);
+    const x1 = x0 + colW * 0.7;
+    const yBot = baselineY;
+    const yTop = baselineY - colH;
+    // Front face
+    cols.push(
+      <rect
+        key={`f-${i}`}
+        x={x0}
+        y={yTop}
+        width={colW * 0.7}
+        height={colH}
+        fill={topColor}
+        opacity={0.85}
+        stroke={edge}
+        strokeWidth={0.4}
+      />,
+    );
+    // Top face (parallelogram, perspective)
+    cols.push(
+      <polygon
+        key={`t-${i}`}
+        points={`${x0},${yTop} ${x1},${yTop} ${x1 + skewX},${yTop + skewY} ${
+          x0 + skewX
+        },${yTop + skewY}`}
+        fill={topColor}
+        opacity={1.0}
+        stroke={edge}
+        strokeWidth={0.4}
+      />,
+    );
+    // Right face (parallelogram)
+    cols.push(
+      <polygon
+        key={`r-${i}`}
+        points={`${x1},${yTop} ${x1},${yBot} ${x1 + skewX},${yBot + skewY} ${
+          x1 + skewX
+        },${yTop + skewY}`}
+        fill={topColor}
+        opacity={0.6}
+        stroke={edge}
+        strokeWidth={0.4}
+      />,
+    );
+    tops.push({ x: x0 + colW * 0.35 + skewX / 2, y: yTop + skewY / 2 });
+  }
+  // Floor connections (graph edges) — sparse curves between top centres.
+  const edgeLines: React.ReactNode[] = [];
+  for (let i = 0; i < N - 1; i++) {
+    for (let j = i + 1; j < N; j++) {
+      if (hash2(i, j, seed + 17) < 0.2) {
+        const a = tops[i];
+        const b = tops[j];
+        const cx = (a.x + b.x) / 2;
+        const cy = baselineY + 6;
+        edgeLines.push(
+          <path
+            key={`e-${i}-${j}`}
+            d={`M${a.x},${a.y} Q${cx},${cy} ${b.x},${b.y}`}
+            stroke={edge}
+            strokeOpacity={0.35}
+            strokeWidth={0.5}
+            fill="none"
+          />,
+        );
+      }
+    }
+  }
+  return (
+    <g>
+      <text
+        x={vizW / 2}
+        y={inset + labelH - 1}
+        textAnchor="middle"
+        fontSize={8.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontStyle="italic"
+      >
+        {label}
+      </text>
+      {edgeLines}
+      {cols}
+      <line
+        x1={ox}
+        y1={baselineY}
+        x2={ox + innerW}
+        y2={baselineY}
+        stroke={edge}
+        strokeOpacity={0.45}
+        strokeWidth={0.5}
+      />
+    </g>
+  );
+}
+
+/**
+ * HRF soft-shift kernel: shows an electrical-onset delta on the left
+ * and a learnable Gaussian (peak at τ_c) on the right, with a small
+ * arrow indicating the soft delay alignment direction.
+ */
+function VizHrfKernel({ vizW, vizH, edge }: VizProps) {
+  const inset = 2;
+  const labelH = 10;
+  const ox = inset + 4;
+  const oy = inset + labelH;
+  const innerW = vizW - 2 * (inset + 4);
+  const innerH = vizH - 2 * inset - labelH - 2;
+  const baselineY = oy + innerH * 0.85;
+
+  // Delta line (electrical onset) at t = 0
+  const deltaX = ox + innerW * 0.2;
+  // Gaussian peak at τ ≈ 0.6 of width
+  const tauX = ox + innerW * 0.6;
+  const sigma = innerW * 0.13;
+  const peakY = oy + innerH * 0.18;
+
+  const samples = 40;
+  const pts: string[] = [];
+  for (let s = 0; s <= samples; s++) {
+    const t = s / samples;
+    const x = ox + t * innerW;
+    const dx = x - tauX;
+    const g = Math.exp(-(dx * dx) / (2 * sigma * sigma));
+    const y = baselineY - g * (baselineY - peakY);
+    pts.push(`${s === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+
+  return (
+    <g>
+      <text
+        x={vizW / 2}
+        y={inset + labelH - 1}
+        textAnchor="middle"
+        fontSize={8.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontStyle="italic"
+      >
+        δσ(t − τc){'\u00A0'}·{'\u00A0'}learnable
+      </text>
+      <line
+        x1={ox}
+        y1={baselineY}
+        x2={ox + innerW}
+        y2={baselineY}
+        stroke={edge}
+        strokeOpacity={0.55}
+        strokeWidth={0.5}
+      />
+      {/* Onset delta */}
+      <line
+        x1={deltaX}
+        y1={baselineY}
+        x2={deltaX}
+        y2={oy + innerH * 0.25}
+        stroke="#1F4E79"
+        strokeWidth={1.4}
+      />
+      <polygon
+        points={`${deltaX - 2.2},${oy + innerH * 0.28} ${deltaX + 2.2},${
+          oy + innerH * 0.28
+        } ${deltaX},${oy + innerH * 0.18}`}
+        fill="#1F4E79"
+      />
+      {/* Gaussian curve */}
+      <path
+        d={pts.join(' ')}
+        fill="none"
+        stroke="#A33A22"
+        strokeWidth={1.4}
+      />
+      {/* τ_c label + tick */}
+      <line
+        x1={tauX}
+        y1={baselineY}
+        x2={tauX}
+        y2={baselineY + 3}
+        stroke={edge}
+        strokeWidth={0.6}
+      />
+      <text
+        x={tauX}
+        y={baselineY + 9}
+        textAnchor="middle"
+        fontSize={7.5}
+        fill="#A33A22"
+        fontStyle="italic"
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        τc
+      </text>
+      {/* Shift arrow */}
+      <line
+        x1={deltaX + 3}
+        y1={oy + innerH * 0.45}
+        x2={tauX - 3}
+        y2={oy + innerH * 0.45}
+        stroke={edge}
+        strokeOpacity={0.7}
+        strokeWidth={0.6}
+        strokeDasharray="2 2"
+      />
+      <polygon
+        points={`${tauX - 4},${oy + innerH * 0.45 - 2} ${tauX - 4},${
+          oy + innerH * 0.45 + 2
+        } ${tauX - 1},${oy + innerH * 0.45}`}
+        fill={edge}
+        opacity={0.7}
+      />
+    </g>
+  );
+}
+
+/**
+ * Modality gate bars: g_E and g_F as horizontal bar pairs, normalised
+ * to (0,1). Indicates per-sample adaptive weighting of the two modal
+ * branches before fusion.
+ */
+function VizGateBars({ vizW, vizH, edge }: VizProps) {
+  const inset = 2;
+  const labelH = 10;
+  const ox = inset + 18;
+  const oy = inset + labelH + 2;
+  const barLabelW = 18;
+  const barX = ox;
+  const barW = vizW - inset - barLabelW - 8 - inset;
+  const barH = (vizH - 2 * inset - labelH - 8) / 2;
+  const gateE = 0.62;
+  const gateF = 0.41;
+
+  return (
+    <g>
+      <text
+        x={vizW / 2}
+        y={inset + labelH - 1}
+        textAnchor="middle"
+        fontSize={8.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontStyle="italic"
+      >
+        modality{'\u00A0'}gates
+      </text>
+      {/* gate_E */}
+      <text
+        x={ox - 4}
+        y={oy + barH * 0.7}
+        textAnchor="end"
+        fontSize={8}
+        fill="#2E5C8A"
+        fontStyle="italic"
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        gE
+      </text>
+      <rect
+        x={barX}
+        y={oy}
+        width={barW}
+        height={barH}
+        fill="#fff"
+        stroke={edge}
+        strokeOpacity={0.4}
+        strokeWidth={0.5}
+      />
+      <rect
+        x={barX}
+        y={oy}
+        width={barW * gateE}
+        height={barH}
+        fill="#2E5C8A"
+        opacity={0.85}
+      />
+      <text
+        x={barX + barW + 3}
+        y={oy + barH * 0.75}
+        fontSize={7.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        {gateE.toFixed(2)}
+      </text>
+      {/* gate_F */}
+      <text
+        x={ox - 4}
+        y={oy + barH + 4 + barH * 0.7}
+        textAnchor="end"
+        fontSize={8}
+        fill="#A33A22"
+        fontStyle="italic"
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        gF
+      </text>
+      <rect
+        x={barX}
+        y={oy + barH + 4}
+        width={barW}
+        height={barH}
+        fill="#fff"
+        stroke={edge}
+        strokeOpacity={0.4}
+        strokeWidth={0.5}
+      />
+      <rect
+        x={barX}
+        y={oy + barH + 4}
+        width={barW * gateF}
+        height={barH}
+        fill="#A33A22"
+        opacity={0.85}
+      />
+      <text
+        x={barX + barW + 3}
+        y={oy + barH + 4 + barH * 0.75}
+        fontSize={7.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        {gateF.toFixed(2)}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * Event-level seizure detection output: a small windowed EEG strip
+ * with an ictal shaded band, a horizontal probability trace below,
+ * and a binary {Ictal, Non-ictal} confidence pair.
+ */
+function VizEventOutput({ vizW, vizH, edge }: VizProps) {
+  const inset = 2;
+  const labelH = 10;
+  const ox = inset + 4;
+  const oy = inset + labelH;
+  const innerW = vizW - 2 * (inset + 4);
+  const innerH = vizH - 2 * inset - labelH - 2;
+
+  // EEG strip (top half)
+  const stripH = innerH * 0.45;
+  const stripY = oy + 2;
+  const baselineY = stripY + stripH * 0.5;
+  const samples = 70;
+  const pts: string[] = [];
+  // Shaded ictal band from 35% to 75% of strip width
+  const ictalX0 = ox + innerW * 0.35;
+  const ictalX1 = ox + innerW * 0.75;
+  for (let s = 0; s <= samples; s++) {
+    const t = s / samples;
+    const x = ox + t * innerW;
+    let amp = 1.6;
+    if (t > 0.35 && t < 0.75) amp = 5.0;
+    const v =
+      Math.sin(t * 22) * amp +
+      Math.sin(t * 41 + 1) * (amp * 0.5) +
+      (hash2(s, 0, 91) - 0.5) * amp * 0.6;
+    const y = baselineY + v;
+    pts.push(`${s === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
+  }
+
+  // Probability trace + bars (bottom half)
+  const probY0 = oy + stripH + 6;
+  const probH = innerH * 0.32;
+
+  return (
+    <g>
+      <text
+        x={vizW / 2}
+        y={inset + labelH - 1}
+        textAnchor="middle"
+        fontSize={8.5}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontStyle="italic"
+      >
+        event{'\u00A0'}decoder{'\u00A0'}·{'\u00A0'}pt{'\u00A0'}/{'\u00A0'}label
+      </text>
+      {/* Ictal shaded band */}
+      <rect
+        x={ictalX0}
+        y={stripY}
+        width={ictalX1 - ictalX0}
+        height={stripH}
+        fill="#A33A22"
+        opacity={0.13}
+      />
+      <rect
+        x={ictalX0}
+        y={stripY}
+        width={ictalX1 - ictalX0}
+        height={stripH}
+        fill="none"
+        stroke="#A33A22"
+        strokeOpacity={0.5}
+        strokeDasharray="2 2"
+        strokeWidth={0.5}
+      />
+      <text
+        x={(ictalX0 + ictalX1) / 2}
+        y={stripY - 0.5}
+        textAnchor="middle"
+        fontSize={6.8}
+        fill="#A33A22"
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        ictal
+      </text>
+      {/* EEG trace */}
+      <path d={pts.join(' ')} fill="none" stroke="#1F4E79" strokeWidth={0.7} />
+      {/* Probability bars */}
+      <rect
+        x={ox}
+        y={probY0}
+        width={innerW}
+        height={probH}
+        fill="#fff"
+        stroke={edge}
+        strokeOpacity={0.4}
+        strokeWidth={0.4}
+      />
+      {/* Threshold line */}
+      <line
+        x1={ox}
+        y1={probY0 + probH * 0.5}
+        x2={ox + innerW}
+        y2={probY0 + probH * 0.5}
+        stroke={edge}
+        strokeOpacity={0.4}
+        strokeDasharray="1 2"
+        strokeWidth={0.4}
+      />
+      {/* p_t curve: low → high → low matching ictal band */}
+      {(() => {
+        const pPts: string[] = [];
+        const pSamples = 40;
+        for (let s = 0; s <= pSamples; s++) {
+          const t = s / pSamples;
+          const inIctal = t > 0.35 && t < 0.75;
+          const target = inIctal ? 0.9 : 0.08;
+          const x = ox + t * innerW;
+          const y = probY0 + probH * (1 - target);
+          pPts.push(`${s === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`);
+        }
+        return (
+          <path
+            d={pPts.join(' ')}
+            fill="none"
+            stroke="#1F6F2A"
+            strokeWidth={1.2}
+          />
+        );
+      })()}
+      <text
+        x={ox - 1}
+        y={probY0 + probH + 7}
+        fontSize={7}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        Ictal{'\u00A0'}0.92
+      </text>
+      <text
+        x={ox + innerW}
+        y={probY0 + probH + 7}
+        textAnchor="end"
+        fontSize={7}
+        fill={edge}
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+      >
+        Non-ictal{'\u00A0'}0.08
+      </text>
+    </g>
+  );
+}
+
+/**
+ * Dispatcher that picks a viz renderer by kind and positions it at the
+ * bottom of the panel rectangle.
+ */
+function PanelVizBlock({
+  kind,
+  panelW,
+  panelH,
+  edge,
+}: {
+  kind: VizKind;
+  panelW: number;
+  panelH: number;
+  edge: string;
+}) {
+  const vizW = panelW - 2 * VIZ_PAD_X;
+  const vizH = VIZ_HEIGHT;
+  const tx = VIZ_PAD_X;
+  const ty = panelH - vizH - VIZ_PAD_BOTTOM;
+  let inner: React.ReactNode = null;
+  switch (kind) {
+    case 'adj-eeg':
+      inner = (
+        <VizAdjacency
+          vizW={vizW}
+          vizH={vizH}
+          edge={edge}
+          n={10}
+          seed={3}
+          label="AdjE  ·  k-NN(band-power)"
+        />
+      );
+      break;
+    case 'adj-fnirs':
+      inner = (
+        <VizAdjacency
+          vizW={vizW}
+          vizH={vizH}
+          edge={edge}
+          n={10}
+          seed={11}
+          label="AdjF  ·  k-NN(hemo)"
+        />
+      );
+      break;
+    case 'adj-het':
+      inner = <VizAdjHet vizW={vizW} vizH={vizH} edge={edge} />;
+      break;
+    case 'lollipop-eeg':
+      inner = (
+        <VizLollipop
+          vizW={vizW}
+          vizH={vizH}
+          edge={edge}
+          topColor="#2E5C8A"
+          label="hE  ·  multi-head"
+          seed={5}
+        />
+      );
+      break;
+    case 'lollipop-fnirs':
+      inner = (
+        <VizLollipop
+          vizW={vizW}
+          vizH={vizH}
+          edge={edge}
+          topColor="#7B4FA0"
+          label="hF  ·  multi-head"
+          seed={19}
+        />
+      );
+      break;
+    case 'hrf-kernel':
+      inner = <VizHrfKernel vizW={vizW} vizH={vizH} edge={edge} />;
+      break;
+    case 'gate-bars':
+      inner = <VizGateBars vizW={vizW} vizH={vizH} edge={edge} />;
+      break;
+    case 'event-output':
+      inner = <VizEventOutput vizW={vizW} vizH={vizH} edge={edge} />;
+      break;
+  }
+  return (
+    <g transform={`translate(${tx}, ${ty})`} pointerEvents="none">
+      <rect
+        x={-2}
+        y={-2}
+        width={vizW + 4}
+        height={vizH + 4}
+        rx={3}
+        ry={3}
+        fill="#ffffff"
+        fillOpacity={0.65}
+        stroke={edge}
+        strokeOpacity={0.18}
+        strokeWidth={0.5}
+      />
+      {inner}
+    </g>
+  );
+}
+
 interface PanelProps {
   spec: PanelSpec;
   x: number;
@@ -2257,6 +3117,14 @@ function Panel({
           </g>
         );
       })}
+      {spec.viz ? (
+        <PanelVizBlock
+          kind={spec.viz}
+          panelW={w}
+          panelH={h}
+          edge={style.edge}
+        />
+      ) : null}
     </g>
   );
 }
